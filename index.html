@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbfbfc">
+  <meta name="description" content="Verate is a provider-neutral coding workspace that quotes cost and execution terms before it runs, then settles against proof.">
+  <title>Verate — Bounded, verified machine work</title>
+  <link rel="icon" href="assets/verate-mark.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Verate home">
+      <img src="assets/verate-mark.svg" alt="">
+      <span>Verate</span>
+    </a>
+    <nav aria-label="Primary">
+      <a href="#product">Product</a>
+      <a href="#economics">Economics</a>
+      <a href="#proof">Proof</a>
+      <a class="download-small" href="https://github.com/howwee20/veratecloud/releases/download/v0.1.0/Verate-0.1.0-macos-arm64.zip">Download</a>
+    </nav>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="eyebrow">Developer preview · Apple silicon</div>
+      <h1>Know the terms<br>before the work begins.</h1>
+      <p>Verate turns uncertain machine intelligence into bounded, purchasable, verified work—inside a real coding workspace.</p>
+      <div class="hero-actions">
+        <a class="primary" href="https://github.com/howwee20/veratecloud/releases/download/v0.1.0/Verate-0.1.0-macos-arm64.zip">Download Verate for Mac</a>
+        <a class="secondary" href="https://github.com/howwee20/veratecloud">View on GitHub</a>
+      </div>
+      <p class="release-line">v0.1.0 · Apple Silicon · Developer preview</p>
+    </section>
+
+    <section class="workspace" id="product" aria-label="Verate product preview">
+      <div class="workspace-topbar">
+        <div class="workspace-brand">Verate</div>
+        <div class="workspace-tabs"><span class="active">Code</span><span>Agent</span><span>Proof</span></div>
+      </div>
+      <div class="editor">
+        <aside class="activity"><span class="active">▱</span><span>⌕</span><span>⑂</span></aside>
+        <aside class="files">
+          <div class="files-title">EXPLORER <span>•••</span></div>
+          <div class="folder">⌄ VERATE</div>
+          <div class="file active"><b>TS</b> src/App.tsx</div>
+          <div class="file"><b>#</b> src/index.css</div>
+          <div class="file"><b>{}</b> package.json</div>
+        </aside>
+        <div class="code">
+          <div class="code-head"><span>src/App.tsx</span><span>TypeScript React</span></div>
+          <pre><span class="purple">type</span> ExecutionPolicy = {
+  budget: <span class="blue">number</span>
+  speed: <span class="green">'flexible'</span> | <span class="green">'fast'</span>
+  assurance: <span class="green">'standard'</span> | <span class="green">'high'</span>
+}
+
+<span class="purple">const</span> contract = quote(work, policy)
+<span class="purple">await</span> authorize(contract)
+<span class="purple">return</span> verify(result, contract.proof)</pre>
+        </div>
+      </div>
+      <div class="agent-composer">
+        <div class="economics-row" id="economics">
+          <span class="auto">AUTO</span>
+          <strong>Economy</strong>
+          <span>$0.20 cap</span><i>·</i><span>Flexible</span><i>·</i><span>High</span>
+        </div>
+        <div class="prompt">Build, debug, or change code</div>
+        <div class="composer-foot"><span>＋</span><span class="access">○&nbsp; Full access</span><span class="quote">Quote before execution&nbsp;&nbsp; ↑</span></div>
+      </div>
+    </section>
+
+    <section class="principle-grid">
+      <article>
+        <span>01</span>
+        <h2>Scope before routing.</h2>
+        <p>A task becomes an execution contract before any provider is selected. Models compete inside your constraints—not the other way around.</p>
+      </article>
+      <article>
+        <span>02</span>
+        <h2>Economics you control.</h2>
+        <p>Choose a hard budget, deadline, assurance level, local-first policy, escalation rights, and eligible providers from one compact control.</p>
+      </article>
+      <article id="proof">
+        <span>03</span>
+        <h2>Completion needs evidence.</h2>
+        <p>Receipts preserve the route, elapsed time, result, changes, and proof command. A run is complete only when its declared proof passes.</p>
+      </article>
+    </section>
+
+    <section class="quote-section">
+      <p class="eyebrow">The primitive</p>
+      <blockquote>Not a model picker. A market and settlement layer for machine work.</blockquote>
+      <p>Verate begins as a coding platform because repositories already contain testable work, observable changes, and strong proof surfaces. The same contract can expand to browser work, files, research, and connected tools.</p>
+    </section>
+
+    <section class="download-card">
+      <div>
+        <p class="eyebrow">Verate v0.1.0</p>
+        <h2>Build with bounded intelligence.</h2>
+        <p>Apple Silicon developer preview. Includes the Verate editor, Codex adapter, quote authorization, economics controls, receipts, and proof-gated completion.</p>
+      </div>
+      <a class="primary" href="https://github.com/howwee20/veratecloud/releases/download/v0.1.0/Verate-0.1.0-macos-arm64.zip">Download for Mac</a>
+    </section>
+
+    <section class="disclosure">
+      <h2>Preview status</h2>
+      <p>This is an early developer build, not a finished production release. It is Apple Silicon only and is not Apple-notarized. The Codex route requires the Codex CLI and an existing authenticated session. Open-model routing is present as an adapter path and still requires local OpenCode/OpenRouter configuration.</p>
+      <p class="checksum">SHA-256: <span id="checksum">a17682bf0a5787cb7766a88b601c645b94013b09e5522bbdb480a9bd56a34f7c</span></p>
+    </section>
+  </main>
+
+  <footer><span>© 2026 Verate</span><span>Built on Code-OSS · Provider-neutral by design</span></footer>
+</body>
+</html>
