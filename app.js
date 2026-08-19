@@ -87,7 +87,6 @@ const AUTO_MODEL = {
 }
 
 const $ = selector => document.querySelector(selector)
-const modelTrack = $('#modelTrack')
 const modelMenu = $('#modelMenu')
 const modelButton = $('#modelButton')
 const modelOptions = $('#modelOptions')
@@ -184,43 +183,6 @@ function createProviderMark(model, className = 'provider-mark') {
   return mark
 }
 
-function featuredModels() {
-  const result = [AUTO_MODEL]
-  const perProvider = new Map()
-  for (const model of catalog) {
-    const count = perProvider.get(model.providerSlug) || 0
-    if (count >= 2) continue
-    result.push(model)
-    perProvider.set(model.providerSlug, count + 1)
-    if (result.length >= 19) break
-  }
-  return result
-}
-
-function createModelChip(model) {
-  const chip = document.createElement('button')
-  chip.className = `model-chip${selectedModel.id === model.id ? ' active' : ''}`
-  chip.type = 'button'
-  chip.dataset.model = model.id
-  chip.setAttribute('aria-label', `Use ${model.provider} ${model.name}`)
-  chip.appendChild(createProviderMark(model, 'model-logo'))
-  const name = document.createElement('span')
-  name.textContent = model.name
-  const note = document.createElement('small')
-  note.textContent = model.note
-  chip.append(name, note)
-  return chip
-}
-
-function renderTrack() {
-  modelTrack.replaceChildren()
-  const featured = featuredModels()
-  const repeated = featured.length > 1 ? [...featured, ...featured] : featured
-  const fragment = document.createDocumentFragment()
-  repeated.forEach(model => fragment.appendChild(createModelChip(model)))
-  modelTrack.appendChild(fragment)
-}
-
 function formatContext(value) {
   if (!value) return 'Context varies'
   if (value >= 1000000) return `${(value / 1000000).toFixed(value % 1000000 ? 1 : 0)}M context`
@@ -314,7 +276,6 @@ function chooseModel(id, persist = true) {
   updateSelectedButton()
   modelMenu.hidden = true
   modelButton.setAttribute('aria-expanded', 'false')
-  renderTrack()
   renderOptions()
   if (persist) saveState()
 }
@@ -656,11 +617,6 @@ async function sendChat(text) {
   }
 }
 
-modelTrack.addEventListener('click', event => {
-  const chip = event.target.closest('[data-model]')
-  if (chip) chooseModel(chip.dataset.model)
-})
-
 modelButton.addEventListener('click', () => {
   modelMenu.hidden = !modelMenu.hidden
   modelButton.setAttribute('aria-expanded', String(!modelMenu.hidden))
@@ -755,7 +711,6 @@ fileInput.addEventListener('change', () => {
 async function initialize() {
   restoreState()
   updateSelectedButton()
-  renderTrack()
   renderOptions()
   try {
     await completeOAuthIfPresent()
