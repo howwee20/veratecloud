@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#ffffff">
   <meta name="description" content="Polyswap — one workspace for every intelligence.">
   <title>PolySwap</title>
-  <link rel="stylesheet" href="styles.css?v=black-wordmark-2">
-  <script src="app.js?v=provider-logos-1" defer></script>
+  <link rel="stylesheet" href="styles.css?v=live-openrouter-1">
+  <script src="app.js?v=live-openrouter-1" defer></script>
 </head>
 <body>
   <header class="site-header" id="top">
@@ -15,13 +15,14 @@
     <nav aria-label="Primary">
       <a href="#product">Product</a>
       <a href="#system">System</a>
+      <button class="connection-button" id="connectionButton" type="button">Connect OpenRouter</button>
       <a class="github-link" href="https://github.com/howwee20/veratecloud">GitHub</a>
     </nav>
   </header>
 
   <main class="product-shell">
     <section class="model-rail" aria-label="Available intelligence models">
-      <span class="model-rail-label">Models</span>
+      <span class="model-rail-label" id="railLabel">Models</span>
       <div class="model-viewport">
         <div class="model-track" id="modelTrack"></div>
       </div>
@@ -34,6 +35,11 @@
       <div class="composer-wrap" id="system">
         <form class="composer" id="composer">
           <div class="policy-bar" aria-label="Task policy">
+            <button class="policy-button mode-policy" id="modeButton" type="button" aria-pressed="false" title="Switch between chat and hosted agent work">
+              <span class="mode-dot"></span>
+              <span id="modeLabel">Chat</span>
+            </button>
+            <span class="policy-separator">·</span>
             <button class="policy-button primary-policy" id="modelButton" type="button" aria-expanded="false">
               <span class="provider-mark auto-mark">A</span>
               <span id="selectedModelLabel">Auto</span>
@@ -44,7 +50,7 @@
               <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
             </button>
             <button class="policy-button" id="capButton" type="button">
-              <span id="capLabel">$0.20 cap</span>
+              <span id="capLabel">$0.20 target</span>
               <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
             </button>
             <span class="policy-separator">·</span>
@@ -62,24 +68,37 @@
           <div class="model-menu" id="modelMenu" hidden>
             <label class="model-search">
               <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg>
-              <input id="modelSearch" type="search" placeholder="Search models" autocomplete="off">
+              <input id="modelSearch" type="search" placeholder="Search hundreds of models" autocomplete="off">
             </label>
+            <div class="model-filter-bar" aria-label="Model filters">
+              <button class="active" data-catalog-filter="all" type="button">All</button>
+              <button data-catalog-filter="agent" type="button">Agent capable</button>
+              <button data-catalog-filter="free" type="button">Free</button>
+              <button data-catalog-filter="favorites" type="button">Favorites</button>
+              <button data-catalog-filter="recent" type="button">Recent</button>
+              <span id="catalogStats">Loading live catalog…</span>
+            </div>
+            <div class="model-advanced-filters">
+              <label>Provider<select id="providerFilter"><option value="all">Any provider</option></select></label>
+              <label>Context<select id="contextFilter"><option value="0">Any context</option><option value="32768">32K+</option><option value="131072">128K+</option><option value="1000000">1M+</option></select></label>
+              <label>Input<select id="modalityFilter"><option value="all">Text</option><option value="vision">Vision</option></select></label>
+            </div>
             <div class="model-options" id="modelOptions"></div>
           </div>
 
-          <textarea id="prompt" rows="3" placeholder="Build, debug, or change code" aria-label="Describe the work"></textarea>
+          <textarea id="prompt" rows="3" placeholder="Ask anything or describe the work" aria-label="Message PolySwap"></textarea>
 
           <div class="attachment-row" id="attachmentRow" hidden></div>
           <div class="composer-foot">
-            <input id="fileInput" type="file" multiple hidden>
+            <input id="fileInput" type="file" accept="image/*,.txt,.md,.json,.csv,.js,.ts,.tsx,.jsx,.py,.html,.css,.xml,.yaml,.yml" multiple hidden>
             <button class="icon-button" id="attachButton" type="button" aria-label="Add files" title="Add files">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             </button>
-            <button class="access-button" id="access" type="button" aria-pressed="true">
-              <span></span><b id="accessLabel">Full access</b>
+            <button class="access-button" id="connectionInline" type="button">
+              <span></span><b id="connectionInlineLabel">Connect OpenRouter</b>
             </button>
-            <span class="local-state" id="localState">Drafts stay in this browser</span>
-            <button class="submit-button" id="submitButton" type="submit" disabled aria-label="Send task">
+            <span class="local-state" id="localState">Loading live model catalog…</span>
+            <button class="submit-button" id="submitButton" type="submit" disabled aria-label="Send message">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5" /></svg>
             </button>
           </div>
