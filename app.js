@@ -94,7 +94,6 @@ const modelOptions = $('#modelOptions')
 const modelSearch = $('#modelSearch')
 const selectedModelLabel = $('#selectedModelLabel')
 const catalogStats = $('#catalogStats')
-const railLabel = $('#railLabel')
 const providerFilter = $('#providerFilter')
 const contextFilter = $('#contextFilter')
 const modalityFilter = $('#modalityFilter')
@@ -469,7 +468,6 @@ async function loadCatalog() {
     const providerCount = new Set(catalog.map(model => model.providerSlug)).size
     catalogStats.textContent = `${catalog.length} models · ${agentCount} agent · ${freeCount} free`
     catalogStats.title = `${providerCount} providers in the live OpenRouter catalog`
-    railLabel.textContent = `${catalog.length} models`
     providerFilter.replaceChildren(new Option('Any provider', 'all'))
     const providers = [...new Map(catalog.map(model => [model.providerSlug, model.provider])).entries()].sort((a, b) => a[1].localeCompare(b[1]))
     providers.forEach(([slug, name]) => providerFilter.appendChild(new Option(name, slug)))
@@ -478,7 +476,6 @@ async function loadCatalog() {
   } catch (error) {
     catalog = []
     catalogStats.textContent = 'Catalog unavailable · Auto still works'
-    railLabel.textContent = 'Models'
     chooseModel(AUTO_MODEL.id, false)
     setLocalStatus(`Catalog error · ${error.message}`)
   }
