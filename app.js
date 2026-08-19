@@ -1,15 +1,15 @@
 const models = [
-  { id: 'auto', name: 'Auto', provider: 'Polyswap', badge: 'A', color: '#25252a', note: 'Policy route' },
-  { id: 'google-gemma', name: 'Gemma 4 26B A4B', provider: 'Google', badge: 'G', color: '#4285f4', note: 'Free' },
-  { id: 'nvidia-nemotron', name: 'Nemotron 3 Nano 30B A3B', provider: 'NVIDIA', badge: 'N', color: '#76b900', note: 'Free' },
-  { id: 'openai-gpt', name: 'GPT', provider: 'OpenAI', badge: 'O', color: '#171717', note: 'Cloud' },
-  { id: 'anthropic-claude', name: 'Claude Sonnet', provider: 'Anthropic', badge: 'A', color: '#d97757', note: 'Cloud' },
-  { id: 'google-gemini', name: 'Gemini Pro', provider: 'Google', badge: 'G', color: '#5b6cf8', note: 'Cloud' },
-  { id: 'moonshot-kimi', name: 'Kimi K2', provider: 'MoonshotAI', badge: 'K', color: '#6657d9', note: 'Cloud' },
-  { id: 'qwen-coder', name: 'Qwen Coder', provider: 'Qwen', badge: 'Q', color: '#6954d8', note: 'Cloud' },
-  { id: 'deepseek-v3', name: 'DeepSeek V3', provider: 'DeepSeek', badge: 'D', color: '#4d6bfe', note: 'Cloud' },
-  { id: 'meta-llama', name: 'Llama', provider: 'Meta', badge: 'M', color: '#1677ff', note: 'Open' },
-  { id: 'mistral', name: 'Mistral', provider: 'Mistral AI', badge: 'M', color: '#f7a600', note: 'Cloud' }
+  { id: 'auto', name: 'Auto', provider: 'Polyswap', badge: 'A', note: 'Policy route' },
+  { id: 'google-gemma', name: 'Gemma 4 26B A4B', provider: 'Google', icon: 'assets/providers/gemma.svg', note: 'Free' },
+  { id: 'nvidia-nemotron', name: 'Nemotron 3 Nano 30B A3B', provider: 'NVIDIA', icon: 'assets/providers/nvidia.svg', note: 'Free' },
+  { id: 'openai-gpt', name: 'GPT', provider: 'OpenAI', icon: 'assets/providers/openai.svg', note: 'Cloud' },
+  { id: 'anthropic-claude', name: 'Claude Sonnet', provider: 'Anthropic', icon: 'assets/providers/anthropic.svg', note: 'Cloud' },
+  { id: 'google-gemini', name: 'Gemini Pro', provider: 'Google', icon: 'assets/providers/gemini.svg', note: 'Cloud' },
+  { id: 'moonshot-kimi', name: 'Kimi K2', provider: 'Moonshot AI', icon: 'assets/providers/kimi.svg', note: 'Cloud' },
+  { id: 'qwen-coder', name: 'Qwen Coder', provider: 'Qwen', icon: 'assets/providers/qwen.svg', note: 'Cloud' },
+  { id: 'deepseek-v3', name: 'DeepSeek V3', provider: 'DeepSeek', icon: 'assets/providers/deepseek.svg', note: 'Cloud' },
+  { id: 'meta-llama', name: 'Llama', provider: 'Meta', icon: 'assets/providers/meta.svg', note: 'Open' },
+  { id: 'mistral', name: 'Mistral', provider: 'Mistral AI', icon: 'assets/providers/mistral.svg', note: 'Cloud' }
 ]
 
 const $ = selector => document.querySelector(selector)
@@ -34,13 +34,17 @@ let attachments = []
 let fullAccess = true
 let messages = []
 
-function providerMark(model) {
-  return '<span class="provider-mark" style="background:' + model.color + ';border-color:' + model.color + ';color:#fff">' + model.badge + '</span>'
+function providerMark(model, className = 'provider-mark') {
+  const classes = className + (model.icon ? '' : ' auto-mark')
+  const content = model.icon
+    ? '<img src="' + model.icon + '" alt="">'
+    : model.badge
+  return '<span class="' + classes + '" aria-hidden="true">' + content + '</span>'
 }
 
 function modelChip(model) {
   const active = selectedModel.id === model.id ? ' active' : ''
-  return '<button class="model-chip' + active + '" type="button" data-model="' + model.id + '" aria-label="Use ' + model.provider + ' ' + model.name + '"><span class="model-dot" style="background:' + model.color + '">' + model.badge + '</span><span>' + model.name + '</span><small>' + model.note + '</small></button>'
+  return '<button class="model-chip' + active + '" type="button" data-model="' + model.id + '" aria-label="Use ' + model.provider + ' ' + model.name + '">' + providerMark(model, 'model-logo') + '<span>' + model.name + '</span><small>' + model.note + '</small></button>'
 }
 
 function renderTrack() {
@@ -63,10 +67,16 @@ function chooseModel(id) {
   selectedModel = models.find(model => model.id === id) || models[0]
   selectedModelLabel.textContent = selectedModel.name
   const mark = modelButton.querySelector('.provider-mark')
-  mark.textContent = selectedModel.badge
-  mark.style.background = selectedModel.color
-  mark.style.borderColor = selectedModel.color
-  mark.style.color = '#fff'
+  mark.className = 'provider-mark' + (selectedModel.icon ? '' : ' auto-mark')
+  mark.replaceChildren()
+  if (selectedModel.icon) {
+    const image = document.createElement('img')
+    image.src = selectedModel.icon
+    image.alt = ''
+    mark.appendChild(image)
+  } else {
+    mark.textContent = selectedModel.badge
+  }
   modelMenu.hidden = true
   modelButton.setAttribute('aria-expanded', 'false')
   renderTrack()
