@@ -1,0 +1,19 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "polyswap-api",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-19",
+  "workers_dev": true,
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "polyswap",
+      "database_id": "c64189a1-4a72-4a91-ae76-5d80f06953bf"
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGINS": "https://polyswap.ai,https://www.polyswap.ai,http://127.0.0.1:4173,http://localhost:4173",
+    "SHARED_BUDGET_USD": "10",
+    "MAX_REQUEST_BUDGET_USD": "1"
+  }
+}

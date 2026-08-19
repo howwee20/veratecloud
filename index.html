@@ -5,11 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#ffffff">
   <meta name="description" content="PolySwap — one workspace for every intelligence.">
+  <meta name="polyswap-api" content="https://polyswap-api.polyswap.workers.dev">
   <title>PolySwap</title>
   <link rel="icon" type="image/png" href="assets/polyswap-mark.png?v=2">
   <link rel="apple-touch-icon" href="assets/polyswap-mark.png?v=2">
-  <link rel="stylesheet" href="styles.css?v=no-rail-1">
-  <script src="app.js?v=no-rail-1" defer></script>
+  <link rel="stylesheet" href="styles.css?v=product-home-1">
+  <script src="app.js?v=product-home-1" defer></script>
 </head>
 <body>
   <header class="site-header" id="top">
@@ -17,6 +18,7 @@
       <img src="assets/polyswap-mark.png?v=2" alt="">
       <span>PolySwap</span>
     </a>
+    <button class="signin-button" id="signInButton" type="button">Sign in</button>
   </header>
 
   <main class="product-shell">
@@ -24,29 +26,12 @@
       <div class="conversation" id="conversation" aria-live="polite"></div>
 
       <div class="composer-wrap" id="system">
+        <p class="composer-thesis">Any model. One workspace.</p>
         <form class="composer" id="composer">
           <div class="policy-bar" aria-label="Task policy">
             <button class="policy-button primary-policy" id="modelButton" type="button" aria-expanded="false">
               <span class="provider-mark auto-mark">A</span>
               <span id="selectedModelLabel">Auto</span>
-              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
-            </button>
-            <button class="policy-button" id="economyButton" type="button">
-              <span id="economyLabel">Economy</span>
-              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
-            </button>
-            <button class="policy-button" id="capButton" type="button">
-              <span id="capLabel">$0.20 target</span>
-              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
-            </button>
-            <span class="policy-separator">·</span>
-            <button class="policy-button" id="speedButton" type="button">
-              <span id="speedLabel">Flexible</span>
-              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
-            </button>
-            <span class="policy-separator">·</span>
-            <button class="policy-button" id="proofButton" type="button">
-              <span id="proofLabel">Standard</span>
               <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
             </button>
           </div>
@@ -80,7 +65,7 @@
             <button class="icon-button" id="attachButton" type="button" aria-label="Add files" title="Add files">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             </button>
-            <span class="local-state" id="localState">Loading live model catalog…</span>
+            <span class="local-state" id="localState"></span>
             <button class="submit-button" id="submitButton" type="submit" disabled aria-label="Send message">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5" /></svg>
             </button>
@@ -89,5 +74,15 @@
       </div>
     </section>
   </main>
+
+  <dialog class="signin-dialog" id="signInDialog">
+    <form method="dialog">
+      <button class="dialog-close" value="close" aria-label="Close sign in dialog">×</button>
+      <img src="assets/polyswap-mark.png?v=2" alt="">
+      <h2>Keep your work</h2>
+      <p>Accounts are coming next. For now, you can use PolySwap without signing in and your work stays in this browser.</p>
+      <button class="dialog-primary" value="close">Continue anonymously</button>
+    </form>
+  </dialog>
 </body>
 </html>

@@ -1,9 +1,8 @@
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models?output_modalities=text&sort=most-popular'
-const OPENROUTER_CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions'
-const OPENROUTER_KEY_URL = 'https://openrouter.ai/api/v1/auth/keys'
+const POLYSWAP_API_ROOT = document.querySelector('meta[name="polyswap-api"]')?.content.replace(/\/$/, '') || 'https://api.polyswap.ai'
 const STATE_KEY = 'polyswap-public-v2'
-const OPENROUTER_KEY_STORAGE = 'polyswap-openrouter-key-v1'
-const PKCE_STORAGE = 'polyswap-openrouter-pkce-v1'
+const SESSION_KEY = 'polyswap-anonymous-session-v1'
+const THREAD_KEY = 'polyswap-thread-v1'
 
 const LOBE_ICON_ROOT = 'https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@1.94.0/icons'
 const lobeIcon = filename => `${LOBE_ICON_ROOT}/${filename}`
@@ -103,6 +102,8 @@ const composer = $('#composer')
 const fileInput = $('#fileInput')
 const attachmentRow = $('#attachmentRow')
 const localState = $('#localState')
+const signInButton = $('#signInButton')
+const signInDialog = $('#signInDialog')
 
 let catalog = []
 let selectedModel = AUTO_MODEL
@@ -112,9 +113,25 @@ let favorites = []
 let recentModels = []
 let attachments = []
 let messages = []
-let openRouterKey = localStorage.getItem(OPENROUTER_KEY_STORAGE) || ''
 let activeController = null
 let renderFrame = null
+
+function newId(prefix) {
+  const value = window.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+  return `${prefix}_${value}`
+}
+
+function persistentId(key, prefix) {
+  let value = localStorage.getItem(key)
+  if (!value) {
+    value = newId(prefix)
+    localStorage.setItem(key, value)
+  }
+  return value
+}
+
+const sessionId = persistentId(SESSION_KEY, 'anon')
+let threadId = persistentId(THREAD_KEY, 'thread')
 
 function titleCase(value) {
   return value.split(/[-_]/).filter(Boolean).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
@@ -294,6 +311,7 @@ function formatUsage(usage, modelId) {
 
 function renderMessages() {
   conversation.replaceChildren()
+  document.body.classList.toggle('has-conversation', messages.length > 0)
   if (!messages.length) return
   const turns = document.createElement('div')
   turns.className = 'turns'
@@ -333,10 +351,6 @@ function saveState() {
   localStorage.setItem(STATE_KEY, JSON.stringify({
     selectedModel: preferredModelId,
     draft: prompt.value,
-    economy: $('#economyLabel').textContent,
-    cap: $('#capLabel').textContent,
-    speed: $('#speedLabel').textContent,
-    proof: $('#proofLabel').textContent,
     favorites,
     recentModels,
     messages: messages.filter(message => !message.pending).slice(-30)
@@ -348,10 +362,6 @@ function restoreState() {
     const state = JSON.parse(localStorage.getItem(STATE_KEY) || '{}')
     preferredModelId = typeof state.selectedModel === 'string' ? state.selectedModel : AUTO_MODEL.id
     prompt.value = typeof state.draft === 'string' ? state.draft : ''
-    if (['Economy', 'Free', 'Balanced', 'Frontier'].includes(state.economy)) $('#economyLabel').textContent = state.economy
-    if (/^\$[0-9.]+ target$/.test(state.cap || '')) $('#capLabel').textContent = state.cap
-    if (['Flexible', 'Balanced', 'Fast'].includes(state.speed)) $('#speedLabel').textContent = state.speed
-    if (['Standard', 'High', 'Maximum'].includes(state.proof)) $('#proofLabel').textContent = state.proof
     favorites = Array.isArray(state.favorites) ? state.favorites.filter(value => typeof value === 'string').slice(0, 100) : []
     recentModels = Array.isArray(state.recentModels) ? state.recentModels.filter(value => typeof value === 'string').slice(0, 12) : []
     messages = Array.isArray(state.messages)
@@ -368,59 +378,11 @@ function setLocalStatus(text) {
   localState.textContent = text
 }
 
-function base64Url(bytes) {
-  let binary = ''
-  new Uint8Array(bytes).forEach(byte => { binary += String.fromCharCode(byte) })
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-}
-
-async function startOAuth() {
-  if (!window.crypto?.subtle) throw new Error('Secure browser cryptography is unavailable.')
-  saveState()
-  const verifier = base64Url(crypto.getRandomValues(new Uint8Array(48)))
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))
-  const challenge = base64Url(digest)
-  sessionStorage.setItem(PKCE_STORAGE, verifier)
-  const callback = `${location.origin}${location.pathname}`
-  const authUrl = new URL('https://openrouter.ai/auth')
-  authUrl.searchParams.set('callback_url', callback)
-  authUrl.searchParams.set('code_challenge', challenge)
-  authUrl.searchParams.set('code_challenge_method', 'S256')
-  location.assign(authUrl.toString())
-}
-
-async function completeOAuthIfPresent() {
-  const params = new URLSearchParams(location.search)
-  const oauthError = params.get('error_description') || params.get('error')
-  if (oauthError) {
-    history.replaceState({}, '', `${location.pathname}#product`)
-    messages.push({ role: 'assistant', text: `Model connection failed: ${oauthError}`, error: true })
-    renderMessages()
-    return
-  }
-  const code = params.get('code')
-  if (!code) return
-  setLocalStatus('Completing secure model connection…')
-  const verifier = sessionStorage.getItem(PKCE_STORAGE)
-  if (!verifier) throw new Error('The secure connection request expired. Please connect again.')
-  const response = await fetch(OPENROUTER_KEY_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, code_verifier: verifier, code_challenge_method: 'S256' })
-  })
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok || !payload.key) throw new Error(payload.error?.message || payload.message || 'The provider did not return a key.')
-  openRouterKey = payload.key
-  localStorage.setItem(OPENROUTER_KEY_STORAGE, openRouterKey)
-  sessionStorage.removeItem(PKCE_STORAGE)
-  history.replaceState({}, '', `${location.pathname}#product`)
-  setLocalStatus('')
-}
-
 async function loadCatalog() {
-  setLocalStatus('Loading live OpenRouter catalog…')
+  setLocalStatus('')
   try {
-    const response = await fetch(OPENROUTER_MODELS_URL, { headers: { Accept: 'application/json' } })
+    let response = await fetch(`${POLYSWAP_API_ROOT}/v1/models`, { headers: { Accept: 'application/json' } }).catch(() => null)
+    if (!response?.ok) response = await fetch(OPENROUTER_MODELS_URL, { headers: { Accept: 'application/json' } })
     if (!response.ok) throw new Error(`catalog returned ${response.status}`)
     const payload = await response.json()
     catalog = (Array.isArray(payload.data) ? payload.data : []).map(normalizeModel).filter(model => model.id && model.id !== AUTO_MODEL.id)
@@ -428,7 +390,7 @@ async function loadCatalog() {
     const freeCount = catalog.filter(model => model.isFree).length
     const providerCount = new Set(catalog.map(model => model.providerSlug)).size
     catalogStats.textContent = `${catalog.length} models · ${agentCount} agent · ${freeCount} free`
-    catalogStats.title = `${providerCount} providers in the live OpenRouter catalog`
+    catalogStats.title = `${providerCount} providers in the live PolySwap catalog`
     providerFilter.replaceChildren(new Option('Any provider', 'all'))
     const providers = [...new Map(catalog.map(model => [model.providerSlug, model.provider])).entries()].sort((a, b) => a[1].localeCompare(b[1]))
     providers.forEach(([slug, name]) => providerFilter.appendChild(new Option(name, slug)))
@@ -448,18 +410,6 @@ function updateSubmitState() {
   submitButton.disabled = streaming ? false : !prompt.value.trim()
   submitButton.setAttribute('aria-label', streaming ? 'Stop response' : 'Send message')
   submitButton.title = streaming ? 'Stop response' : 'Send message'
-}
-
-function cycle(button, values, labelSelector, pairedValues) {
-  button.addEventListener('click', () => {
-    const label = $(labelSelector)
-    const current = values.indexOf(label.textContent)
-    const next = (current + 1) % values.length
-    label.textContent = values[next]
-    if (pairedValues) $('#capLabel').textContent = pairedValues[next]
-    setLocalStatus('Policy updated')
-    saveState()
-  })
 }
 
 function renderAttachments() {
@@ -507,13 +457,11 @@ async function buildUserContent(text) {
 }
 
 function resolveRouteModel() {
-  if ($('#economyLabel').textContent === 'Free') return selectedModel.isFree ? selectedModel.id : 'openrouter/free'
   return selectedModel.isAuto ? 'openrouter/auto' : selectedModel.id
 }
 
 function targetDollars() {
-  const match = $('#capLabel').textContent.match(/\$([0-9.]+)/)
-  return match ? Number(match[1]) : 0.2
+  return 0.2
 }
 
 function outputTokenTarget(model) {
@@ -532,7 +480,7 @@ function contentText(content) {
 async function consumeStream(response, assistant) {
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}))
-    throw new Error(payload.error?.message || payload.message || `OpenRouter returned ${response.status}`)
+    throw new Error(payload.error?.message || payload.message || `PolySwap returned ${response.status}`)
   }
   if (!response.body) throw new Error('The browser did not receive a response stream.')
   const reader = response.body.getReader()
@@ -544,7 +492,7 @@ async function consumeStream(response, assistant) {
     const data = trimmed.slice(5).trim()
     if (!data || data === '[DONE]') return
     const chunk = JSON.parse(data)
-    if (chunk.error) throw new Error(chunk.error.message || 'OpenRouter stream error')
+    if (chunk.error) throw new Error(chunk.error.message || 'PolySwap stream error')
     if (chunk.model) assistant.modelId = chunk.model
     if (chunk.usage) assistant.usage = chunk.usage
     const text = contentText(chunk.choices?.[0]?.delta?.content)
@@ -581,16 +529,21 @@ async function sendChat(text) {
   updateSubmitState()
   setLocalStatus(`Streaming ${routeModel}…`)
   try {
-    const response = await fetch(OPENROUTER_CHAT_URL, {
+    const response = await fetch(`${POLYSWAP_API_ROOT}/v1/chat`, {
       method: 'POST',
       signal: activeController.signal,
       headers: {
-        Authorization: `Bearer ${openRouterKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': location.origin,
-        'X-Title': 'PolySwap'
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ model: routeModel, messages: [...previous, { role: 'user', content }], stream: true, max_tokens: outputTokenTarget(routeModel) })
+      body: JSON.stringify({
+        sessionId,
+        threadId,
+        model: routeModel,
+        messages: [...previous, { role: 'user', content }],
+        stream: true,
+        maxTokens: outputTokenTarget(routeModel),
+        budgetTarget: targetDollars()
+      })
     })
     await consumeStream(response, assistant)
     assistant.pending = false
@@ -658,11 +611,6 @@ document.addEventListener('pointerdown', event => {
   }
 })
 
-cycle($('#economyButton'), ['Economy', 'Free', 'Balanced', 'Frontier'], '#economyLabel', ['$0.20 target', '$0.00 target', '$1.00 target', '$5.00 target'])
-cycle($('#capButton'), ['$0.20 target', '$0.50 target', '$1.00 target', '$5.00 target'], '#capLabel')
-cycle($('#speedButton'), ['Flexible', 'Balanced', 'Fast'], '#speedLabel')
-cycle($('#proofButton'), ['Standard', 'High', 'Maximum'], '#proofLabel')
-
 prompt.addEventListener('input', () => {
   updateSubmitState()
   setLocalStatus(prompt.value.trim() ? 'Draft saved in this browser' : '')
@@ -684,14 +632,6 @@ composer.addEventListener('submit', async event => {
   }
   const text = prompt.value.trim()
   if (!text) return
-  if (!openRouterKey) {
-    setLocalStatus('Opening secure model connection…')
-    try { await startOAuth() } catch (error) {
-      messages.push({ role: 'assistant', text: `Could not start the secure connection: ${error.message}`, error: true })
-      renderMessages()
-    }
-    return
-  }
   try {
     await sendChat(text)
   } catch (error) {
@@ -699,6 +639,10 @@ composer.addEventListener('submit', async event => {
     renderMessages()
     setLocalStatus('Request not sent')
   }
+})
+
+signInButton.addEventListener('click', () => {
+  if (typeof signInDialog.showModal === 'function') signInDialog.showModal()
 })
 
 $('#attachButton').addEventListener('click', () => fileInput.click())
@@ -712,14 +656,6 @@ async function initialize() {
   restoreState()
   updateSelectedButton()
   renderOptions()
-  try {
-    await completeOAuthIfPresent()
-  } catch (error) {
-    history.replaceState({}, '', `${location.pathname}#product`)
-    messages.push({ role: 'assistant', text: `Connection failed: ${error.message}`, error: true })
-    renderMessages()
-    setLocalStatus('Connection failed')
-  }
   await loadCatalog()
   updateSubmitState()
 }
