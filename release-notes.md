@@ -1,8 +1,9 @@
-# Polyswap alpha status
+# Polyswap public product shell
 
-The working Polyswap alpha is currently local-only. It includes a live
-OpenRouter model catalog, a pinned OpenCode harness, policy-bound model choice,
-hard-cap metering, and proof-gated completion.
+The public site now loads the Polyswap workspace instead of a marketing page.
+It includes the model carousel, model picker, task-policy controls, file
+selection, browser-local drafts, access mode, and the message composer.
 
-No public Polyswap desktop package has been published. The earlier Verate
-developer-preview artifact is a legacy build and is not presented as Polyswap.
+Hosted execution is intentionally not presented as connected until the account
+and runtime layer is deployed. The working OpenCode/OpenRouter alpha remains a
+separate local service.

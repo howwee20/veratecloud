@@ -3,101 +3,90 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#fbfbfc">
-  <meta name="description" content="Polyswap is the agentic computer for every intelligence. Keep one working context while models and harnesses change underneath it.">
-  <title>Polyswap — Every intelligence, one agentic computer</title>
-  <link rel="stylesheet" href="styles.css?v=black-wordmark">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="Polyswap — one workspace for every intelligence.">
+  <title>Polyswap</title>
+  <link rel="stylesheet" href="styles.css?v=product-experience-1">
+  <script src="app.js?v=product-experience-1" defer></script>
 </head>
 <body>
-  <header class="site-header">
+  <header class="site-header" id="top">
     <a class="brand" href="#top" aria-label="Polyswap home">Polyswap</a>
     <nav aria-label="Primary">
       <a href="#product">Product</a>
       <a href="#system">System</a>
       <a href="#access">Alpha</a>
-      <a class="download-small" href="https://github.com/howwee20/veratecloud">GitHub</a>
+      <a class="github-link" href="https://github.com/howwee20/veratecloud">GitHub</a>
     </nav>
   </header>
 
-  <main id="top">
-    <section class="hero">
-      <div class="eyebrow">The agentic computer · any intelligence</div>
-      <h1>Swap intelligence.<br>Keep your flow.</h1>
-      <p>Polyswap gives you one Codex-like place to build with every qualified model and harness—without surrendering your context, economics, or proof.</p>
-      <div class="hero-actions">
-        <a class="primary" href="#product">See the product</a>
-        <a class="secondary" href="#access">Private alpha</a>
+  <main class="product-shell">
+    <section class="model-rail" aria-label="Available intelligence models">
+      <span class="model-rail-label">Models</span>
+      <div class="model-viewport">
+        <div class="model-track" id="modelTrack"></div>
       </div>
-      <p class="release-line">OpenRouter model supply · OpenCode harness · Polyswap control plane</p>
+      <span class="model-rail-hint">Select any model</span>
     </section>
 
-    <section class="workspace" id="product" aria-label="Polyswap product preview">
-      <div class="workspace-topbar">
-        <div class="workspace-brand">Polyswap</div>
-        <div class="workspace-status"><span></span> Product preview</div>
-      </div>
-      <div class="agent-canvas">
-        <div class="task-thread">
-          <div class="user-message">Add a verified health check to the local agent service.</div>
-          <div class="agent-message">
-            <span class="agent-dot"></span>
-            <p>I’ll inspect the service boundary, implement the check, run the relevant tests, and return the observable evidence.</p>
+    <section class="experience" id="product" aria-label="Polyswap product">
+      <div class="conversation" id="conversation" aria-live="polite"></div>
+
+      <div class="composer-wrap" id="system">
+        <form class="composer" id="composer">
+          <div class="policy-bar" aria-label="Task policy">
+            <button class="policy-button primary-policy" id="modelButton" type="button" aria-expanded="false">
+              <span class="provider-mark auto-mark">A</span>
+              <span id="selectedModelLabel">Auto</span>
+              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
+            </button>
+            <button class="policy-button" id="economyButton" type="button">
+              <span id="economyLabel">Economy</span>
+              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
+            </button>
+            <button class="policy-button" id="capButton" type="button">
+              <span id="capLabel">$0.20 cap</span>
+              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
+            </button>
+            <span class="policy-separator">·</span>
+            <button class="policy-button" id="speedButton" type="button">
+              <span id="speedLabel">Flexible</span>
+              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
+            </button>
+            <span class="policy-separator">·</span>
+            <button class="policy-button" id="proofButton" type="button">
+              <span id="proofLabel">Standard</span>
+              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
+            </button>
           </div>
-        </div>
-      </div>
-      <div class="agent-composer">
-        <div class="economics-row">
-          <span class="auto">AUTO</span>
-          <strong>Economy</strong>
-          <span>$0.20 cap</span><i>·</i><span>Flexible</span><i>·</i><span>High</span>
-          <div class="model-supply" aria-label="Available intelligence providers">
-            <span title="OpenAI">◉</span><span title="Anthropic">A</span><span title="Google">✦</span><span title="Meta">∞</span><b>All models</b>
+
+          <div class="model-menu" id="modelMenu" hidden>
+            <label class="model-search">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg>
+              <input id="modelSearch" type="search" placeholder="Search models" autocomplete="off">
+            </label>
+            <div class="model-options" id="modelOptions"></div>
           </div>
-        </div>
-        <div class="prompt">Build, debug, or change code</div>
-        <div class="composer-foot"><span>＋</span><span class="access">○&nbsp; Full access</span><span class="quote">Run with policy&nbsp;&nbsp; ↑</span></div>
+
+          <textarea id="prompt" rows="3" placeholder="Build, debug, or change code" aria-label="Describe the work"></textarea>
+
+          <div class="attachment-row" id="attachmentRow" hidden></div>
+          <div class="composer-foot">
+            <input id="fileInput" type="file" multiple hidden>
+            <button class="icon-button" id="attachButton" type="button" aria-label="Add files" title="Add files">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
+            </button>
+            <button class="access-button" id="access" type="button" aria-pressed="true">
+              <span></span><b id="accessLabel">Full access</b>
+            </button>
+            <span class="local-state" id="localState">Drafts stay in this browser</span>
+            <button class="submit-button" id="submitButton" type="submit" disabled aria-label="Send task">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5" /></svg>
+            </button>
+          </div>
+        </form>
       </div>
-    </section>
-
-    <section class="principle-grid" id="system">
-      <article>
-        <span>01</span>
-        <h2>Choose the intelligence.</h2>
-        <p>Use Auto or pick from qualified cloud and local models. The model is supply; your project remains the durable object.</p>
-      </article>
-      <article>
-        <span>02</span>
-        <h2>Swap the harness.</h2>
-        <p>OpenCode is the first execution engine, not the product identity. Harnesses compete behind one stable Polyswap experience.</p>
-      </article>
-      <article>
-        <span>03</span>
-        <h2>Keep one truth.</h2>
-        <p>Policy, permissions, spend, changes, tests, and proof stay attached to the task—even when the underlying intelligence changes.</p>
-      </article>
-    </section>
-
-    <section class="quote-section">
-      <p class="eyebrow">The shift</p>
-      <blockquote>Models change. Your agentic computer shouldn’t.</blockquote>
-      <p>People are moving from operating software to telling computers what outcome they want. Polyswap makes that relationship independent of any single intelligence provider.</p>
-    </section>
-
-    <section class="download-card" id="access">
-      <div>
-        <p class="eyebrow">Private alpha</p>
-        <h2>The working product is local first.</h2>
-        <p>The current alpha connects a live OpenRouter catalog to a pinned OpenCode coding harness, enforces a hard spend cap, and records metered proof. A public Polyswap desktop package has not been published yet.</p>
-      </div>
-      <span class="status-pill">Desktop release pending</span>
-    </section>
-
-    <section class="disclosure">
-      <h2>What is real now</h2>
-      <p>The local alpha has a searchable provider/model catalog, interchangeable engine boundary, policy controls, bring-your-own OpenRouter key, hard-cap metering, streamed run state, diffs, test evidence, and proof-gated completion. Hosted accounts, Polyswap-owned billing, signed receipts, and a distributable desktop release remain production work.</p>
     </section>
   </main>
-
-  <footer><span>© 2026 Polyswap</span><span>Every intelligence · one agentic computer</span></footer>
 </body>
 </html>

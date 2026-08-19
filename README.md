@@ -1,18 +1,17 @@
 # Polyswap
 
-Polyswap is the agentic computer for every intelligence: one durable working
-context with interchangeable models and harnesses.
+Polyswap is one working surface for interchangeable models and harnesses.
 
-This repository contains the static GitHub Pages site for `polyswap.ai`. The
-working local alpha lives separately in `outputs/verate-app` while directory
-names are migrated. There is no public Polyswap desktop download yet, and the
-site does not claim otherwise.
+This repository contains the public product shell for `polyswap.ai`. It opens
+directly into the Polyswap workspace with a rotating model rail, model and
+policy selection, local draft persistence, file selection, access-mode control,
+and the message composer. The marketing landing page has been removed.
 
 ## Current alpha boundary
 
-- OpenRouter provides the live cloud model catalog and BYOK billing.
-- OpenCode `1.18.11` is the pinned, replaceable coding harness.
-- Polyswap owns task state, model policy, hard-cap authorization, metering,
-  evidence, and proof-gated completion.
-- Hosted accounts, Polyswap-owned billing, signing, notarization, and a public
-  desktop release remain production work.
+- The GitHub Pages product shell is interactive and stores its state in the
+  current browser.
+- Hosted inference is not connected from this static repository yet.
+- The working local alpha and its OpenCode/OpenRouter runtime live separately
+  in `outputs/verate-app` while directory names are migrated.
+- Accounts and the hosted execution boundary are the next production layer.
