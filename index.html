@@ -9,28 +9,22 @@
   <title>PolySwap</title>
   <link rel="icon" type="image/png" href="assets/polyswap-mark.png?v=2">
   <link rel="apple-touch-icon" href="assets/polyswap-mark.png?v=2">
-  <link rel="stylesheet" href="styles.css?v=friends-alpha-3">
-  <script src="app.js?v=friends-alpha-3" defer></script>
+  <link rel="stylesheet" href="styles.css?v=local-design-4">
+  <script src="app.js?v=local-design-4" defer></script>
 </head>
 <body>
   <header class="site-header" id="top">
-    <div class="header-start">
-      <a class="brand" href="#top" aria-label="PolySwap home">
-        <span class="brand-mark" aria-hidden="true">
-          <i class="brand-orb brand-orb-pink"></i>
-          <i class="brand-orb brand-orb-orange"></i>
-          <i class="brand-orb brand-orb-yellow"></i>
-          <i class="brand-orb brand-orb-green"></i>
-          <i class="brand-orb brand-orb-blue"></i>
-          <i class="brand-orb brand-orb-purple"></i>
-        </span>
-        <span>PolySwap</span>
-      </a>
-      <button class="history-button" id="historyButton" type="button" aria-label="Open private chat history" title="Chats in this browser">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5.5h12M4 10h12M4 14.5h8" /></svg>
-      </button>
-    </div>
-    <button class="signin-button" id="signInButton" type="button">Alpha access</button>
+    <a class="brand" href="#top" aria-label="PolySwap home">
+      <span class="brand-mark" aria-hidden="true">
+        <i class="brand-orb brand-orb-pink"></i>
+        <i class="brand-orb brand-orb-orange"></i>
+        <i class="brand-orb brand-orb-yellow"></i>
+        <i class="brand-orb brand-orb-green"></i>
+        <i class="brand-orb brand-orb-blue"></i>
+        <i class="brand-orb brand-orb-purple"></i>
+      </span>
+      <span>PolySwap</span>
+    </a>
   </header>
 
   <main class="product-shell">
@@ -82,8 +76,8 @@
             <div class="model-options" id="modelOptions"></div>
           </div>
 
-          <div class="composer-control-bar" role="toolbar" aria-label="Model, effort, and speed">
-            <button class="composer-control composer-control-model" id="modelPolicyRow" type="button" aria-haspopup="dialog">
+          <div class="composer-control-bar" role="toolbar" aria-label="Model, effort, speed, and chats">
+            <button class="composer-control composer-control-model" id="modelPolicyRow" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="modelMenu">
               <span class="policy-model-mark auto-mark" aria-hidden="true"><img src="assets/polyswap-mark.png?v=2" alt=""></span>
               <span class="composer-control-copy"><small>Model</small><strong id="modelPolicyValue">Auto</strong></span>
               <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
@@ -95,6 +89,9 @@
             <button class="composer-control" id="speedPolicyRow" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="speedMenu">
               <span class="composer-control-copy"><small>Speed</small><strong id="speedPolicyValue">Standard</strong></span>
               <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
+            </button>
+            <button class="composer-history-button" id="historyButton" type="button" aria-label="Open chats" aria-haspopup="dialog" aria-expanded="false" aria-controls="historyDrawer" title="Chats in this browser">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5.5h12M4 10h12M4 14.5h8" /></svg>
             </button>
           </div>
 
@@ -111,6 +108,21 @@
             <button type="button" role="menuitemradio" data-speed="fast"><span><strong>Fast</strong><small>Priority delivery</small></span><i aria-hidden="true">✓</i></button>
           </div>
 
+          <div class="history-panel" id="historyDrawer" role="dialog" aria-label="Your chats" hidden>
+            <div class="history-head">
+              <div>
+                <strong>Your chats</strong>
+                <span>Stored in this browser</span>
+              </div>
+              <button id="historyCloseButton" type="button" aria-label="Close chats">×</button>
+            </div>
+            <button class="new-chat-button" id="newChatButton" type="button">
+              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12" /></svg>
+              New chat
+            </button>
+            <div class="thread-list" id="threadList"></div>
+          </div>
+
           <textarea id="prompt" rows="3" placeholder="Ask anything or describe the work" aria-label="Message PolySwap"></textarea>
 
           <div class="attachment-row" id="attachmentRow" hidden></div>
@@ -125,6 +137,13 @@
             </button>
           </div>
         </form>
+
+        <div class="composer-hover-preview" id="composerHoverPreview" aria-live="polite" hidden>
+          <div class="composer-hover-preview-head">
+            <strong id="composerHoverPreviewTitle"></strong>
+          </div>
+          <div class="composer-hover-preview-wheel" id="composerHoverPreviewWheel"></div>
+        </div>
 
         <div class="prompt-examples" id="promptExamples" aria-label="Example prompts">
           <button type="button" data-example-prompt="Summarize this PDF">Summarize this PDF</button>
@@ -143,29 +162,12 @@
     </section>
   </main>
 
-  <button class="drawer-backdrop" id="historyBackdrop" type="button" aria-label="Close chat history" hidden></button>
-  <aside class="history-drawer" id="historyDrawer" aria-label="Private chat history" hidden>
-    <div class="history-head">
-      <div>
-        <strong>Your chats</strong>
-        <span>Private to this browser</span>
-      </div>
-      <button id="historyCloseButton" type="button" aria-label="Close chat history">×</button>
-    </div>
-    <button class="new-chat-button" id="newChatButton" type="button">
-      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12" /></svg>
-      New chat
-    </button>
-    <div class="thread-list" id="threadList"></div>
-    <p class="history-note">Conversation history stays on this device. Requests and responses are also recorded in PolySwap's private launch log for support and usage learning.</p>
-  </aside>
-
   <dialog class="signin-dialog access-dialog" id="signInDialog">
     <form id="accessForm">
       <button class="dialog-close" id="accessDialogClose" type="button" aria-label="Close access dialog">×</button>
       <img src="assets/polyswap-mark.png?v=2" alt="">
-      <h2>Enter the friends alpha</h2>
-      <p>Use the private invite code. Your chats stay on this browser; prompts and model responses are recorded in PolySwap's private launch log so the alpha can be supported.</p>
+      <h2>Enter invite code</h2>
+      <p>Use your private invite code. Your chats stay on this browser; prompts and model responses are recorded in PolySwap's private launch log for support.</p>
       <label class="access-code-label" for="accessCodeInput">Invite code</label>
       <input class="access-code-input" id="accessCodeInput" type="password" autocomplete="one-time-code" placeholder="Enter code" required>
       <p class="access-error" id="accessError" role="alert"></p>

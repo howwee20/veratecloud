@@ -1,4 +1,5 @@
 const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models?output_modalities=text&sort=most-popular'
+const OPENROUTER_SHOWCASE_MODELS_URL = 'https://openrouter.ai/api/v1/models?output_modalities=text&supported_parameters=tools&sort=intelligence-high-to-low'
 const POLYSWAP_API_ROOT = document.querySelector('meta[name="polyswap-api"]')?.content.replace(/\/$/, '') || 'https://api.polyswap.ai'
 const STATE_KEY = 'polyswap-public-v2'
 const SESSION_KEY = 'polyswap-anonymous-session-v1'
@@ -124,7 +125,6 @@ const composer = $('#composer')
 const fileInput = $('#fileInput')
 const attachmentRow = $('#attachmentRow')
 const localState = $('#localState')
-const signInButton = $('#signInButton')
 const signInDialog = $('#signInDialog')
 const accessForm = $('#accessForm')
 const accessDialogClose = $('#accessDialogClose')
@@ -133,7 +133,6 @@ const accessError = $('#accessError')
 const accessSubmitButton = $('#accessSubmitButton')
 const historyButton = $('#historyButton')
 const historyDrawer = $('#historyDrawer')
-const historyBackdrop = $('#historyBackdrop')
 const historyCloseButton = $('#historyCloseButton')
 const newChatButton = $('#newChatButton')
 const threadList = $('#threadList')
@@ -152,10 +151,9 @@ const effortPolicyValue = $('#effortPolicyValue')
 const speedPolicyValue = $('#speedPolicyValue')
 const effortMenu = $('#effortMenu')
 const speedMenu = $('#speedMenu')
-
-// Keep the large picker outside the transformed composer so `position: fixed`
-// is truly viewport-relative and can never crop the writing surface beneath it.
-document.body.appendChild(modelMenu)
+const composerHoverPreview = $('#composerHoverPreview')
+const composerHoverPreviewTitle = $('#composerHoverPreviewTitle')
+const composerHoverPreviewWheel = $('#composerHoverPreviewWheel')
 
 let catalog = []
 let selectedModel = AUTO_MODEL
@@ -175,6 +173,12 @@ let renderFrame = null
 let homeModelTimer = null
 let homeModelIndex = 0
 let homeModels = []
+let showcaseCatalog = []
+let activeComposerPanel = null
+let composerPanelPinned = false
+let composerPanelCloseTimer = null
+let composerHoverPreviewTrigger = null
+let composerHoverPreviewCloseTimer = null
 
 function newId(prefix) {
   const value = window.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
@@ -366,22 +370,13 @@ function renderThreadList() {
   threadList.appendChild(fragment)
 }
 
-function openHistoryDrawer() {
+function openHistoryDrawer({ pin = true } = {}) {
   renderThreadList()
-  historyDrawer.hidden = false
-  historyBackdrop.hidden = false
-  document.body.classList.add('history-open')
+  openComposerPanel(historyDrawer, historyButton, { pin })
 }
 
 function closeHistoryDrawer() {
-  historyDrawer.hidden = true
-  historyBackdrop.hidden = true
-  document.body.classList.remove('history-open')
-}
-
-function updateAccessUI() {
-  signInButton.textContent = accessToken ? 'Alpha active' : 'Alpha access'
-  signInButton.classList.toggle('active', Boolean(accessToken))
+  closeComposerPanels()
 }
 
 function openAccessDialog(message = '') {
@@ -426,6 +421,7 @@ function normalizeModel(raw) {
     badge: (provider.name || '?').charAt(0).toUpperCase(),
     note: `${isFree ? 'Free · ' : ''}${supportsTools ? 'Agent' : 'Model'}`,
     description: String(raw.description || ''),
+    created: safeNumber(raw.created),
     contextLength: safeNumber(raw.context_length),
     promptPrice,
     completionPrice,
@@ -462,10 +458,28 @@ function createProviderMark(model, className = 'provider-mark') {
 }
 
 function featuredHomeModels() {
-  const providerOrder = ['openai', 'anthropic', 'google', 'x-ai', 'deepseek', 'meta-llama', 'mistralai']
-  const featured = providerOrder.map(slug => catalog.find(model => model.providerSlug === slug && (model.supportsTools || model.supportsImages)) || catalog.find(model => model.providerSlug === slug)).filter(Boolean)
-  if (featured.length >= 3) return featured
-  return catalog.slice(0, 6)
+  const freshAfter = Math.floor(Date.now() / 1000) - (365 * 24 * 60 * 60)
+  const source = showcaseCatalog.length ? showcaseCatalog : catalog.slice().sort((a, b) => b.created - a.created)
+  const candidates = source.filter(model =>
+    model.supportsTools &&
+    model.created >= freshAfter &&
+    model.contextLength >= 64000 &&
+    !model.id.includes(':') &&
+    !/(image|embedding|moderation|guard|rerank|audio|video)/i.test(`${model.id} ${model.name}`)
+  )
+
+  const featured = []
+  const representedProviders = new Set()
+  candidates.forEach(model => {
+    if (featured.length >= 12 || representedProviders.has(model.providerSlug)) return
+    representedProviders.add(model.providerSlug)
+    featured.push(model)
+  })
+  candidates.forEach(model => {
+    if (featured.length >= 14 || featured.some(feature => feature.id === model.id)) return
+    featured.push(model)
+  })
+  return featured.length >= 6 ? featured : source.slice(0, 12)
 }
 
 function homeModelDescription(model) {
@@ -608,34 +622,191 @@ function updatePolicyDisplay() {
   speedMenu.querySelectorAll('[data-speed]').forEach(option => option.setAttribute('aria-checked', String(option.dataset.speed === selectedSpeed)))
 }
 
-function closePolicySubmenus() {
-  effortMenu.hidden = true
-  speedMenu.hidden = true
-  effortPolicyRow.setAttribute('aria-expanded', 'false')
-  speedPolicyRow.setAttribute('aria-expanded', 'false')
-}
+function createHoverPreviewOption({ label, meta = '', note = '', selected = false, model = null, action, value = '' }) {
+  const option = document.createElement('button')
+  option.type = 'button'
+  option.className = `hover-preview-option${model ? '' : ' simple'}${selected ? ' selected' : ''}`
+  option.dataset.previewAction = action
+  option.dataset.previewValue = value
+  if (model) option.appendChild(createProviderMark(model))
 
-function openPolicySubmenu(menu, trigger) {
-  closeModelMenu()
-  const willOpen = menu.hidden
-  closePolicySubmenus()
-  if (!willOpen) return
-  menu.hidden = false
-  trigger.setAttribute('aria-expanded', 'true')
-}
-
-function openModelMenu({ focusSearch = false } = {}) {
-  closePolicySubmenus()
-  if (modelMenu.hidden) {
-    modelMenu.hidden = false
-    renderOptions()
+  const copy = document.createElement('span')
+  copy.className = 'hover-preview-copy'
+  const strong = document.createElement('strong')
+  strong.textContent = label
+  copy.appendChild(strong)
+  if (meta) {
+    const small = document.createElement('small')
+    small.textContent = meta
+    copy.appendChild(small)
   }
+  option.appendChild(copy)
+
+  const detail = document.createElement('span')
+  detail.className = selected ? 'hover-preview-check' : 'hover-preview-note'
+  detail.textContent = selected ? '✓' : note
+  option.appendChild(detail)
+  return option
+}
+
+function renderHoverPreview(kind) {
+  composerHoverPreviewWheel.replaceChildren()
+  const fragment = document.createDocumentFragment()
+
+  if (kind === 'model') {
+    composerHoverPreviewTitle.textContent = 'Models'
+    allModels().forEach(model => {
+      fragment.appendChild(createHoverPreviewOption({
+        label: model.name,
+        meta: model.isAuto ? 'PolySwap chooses the route' : `${model.provider} · ${formatContext(model.contextLength)}`,
+        note: formatPrice(model),
+        selected: model.id === selectedModel.id,
+        model,
+        action: 'model',
+        value: model.id
+      }))
+    })
+  } else if (kind === 'effort') {
+    composerHoverPreviewTitle.textContent = 'Effort'
+    const descriptions = { quick: 'Direct response', standard: 'Balanced work', deep: 'Thorough and verified' }
+    Object.entries(EFFORT_LEVELS).forEach(([value, level]) => {
+      fragment.appendChild(createHoverPreviewOption({
+        label: level.label,
+        meta: descriptions[value],
+        selected: value === selectedEffort,
+        action: 'effort',
+        value
+      }))
+    })
+  } else if (kind === 'speed') {
+    composerHoverPreviewTitle.textContent = 'Speed'
+    const descriptions = { standard: 'Normal delivery', fast: 'Priority delivery' }
+    Object.entries(SPEED_LEVELS).forEach(([value, level]) => {
+      fragment.appendChild(createHoverPreviewOption({
+        label: level.label,
+        meta: descriptions[value],
+        selected: value === selectedSpeed,
+        action: 'speed',
+        value
+      }))
+    })
+  } else {
+    composerHoverPreviewTitle.textContent = 'Your chats'
+    fragment.appendChild(createHoverPreviewOption({
+      label: 'New chat',
+      meta: 'Start a fresh thread',
+      note: '+',
+      action: 'new-chat'
+    }))
+    const orderedThreads = threads.slice().sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)))
+    orderedThreads.forEach(thread => {
+      fragment.appendChild(createHoverPreviewOption({
+        label: thread.title || 'New chat',
+        meta: formatThreadTime(thread.updatedAt),
+        selected: thread.id === threadId,
+        action: 'thread',
+        value: thread.id
+      }))
+    })
+  }
+
+  composerHoverPreviewWheel.appendChild(fragment)
+  if (!composerHoverPreviewWheel.children.length) {
+    const empty = document.createElement('div')
+    empty.className = 'hover-preview-empty'
+    empty.textContent = 'Nothing here yet.'
+    composerHoverPreviewWheel.appendChild(empty)
+  }
+}
+
+function positionHoverPreview(trigger, kind) {
+  const wrapRect = composer.parentElement.getBoundingClientRect()
+  const triggerRect = trigger.getBoundingClientRect()
+  const desiredWidth = kind === 'model' ? 350 : kind === 'chats' ? 300 : 240
+  const width = Math.min(desiredWidth, wrapRect.width)
+  const triggerCenter = triggerRect.left - wrapRect.left + triggerRect.width / 2
+  const left = Math.max(0, Math.min(triggerCenter - width / 2, wrapRect.width - width))
+  const caretLeft = Math.max(20, Math.min(width - 20, triggerCenter - left))
+  composerHoverPreview.style.width = `${width}px`
+  composerHoverPreview.style.left = `${left}px`
+  composerHoverPreview.style.setProperty('--preview-caret-left', `${caretLeft}px`)
+}
+
+function closeHoverPreview() {
+  window.clearTimeout(composerHoverPreviewCloseTimer)
+  composerHoverPreview.hidden = true
+  composerHoverPreviewTrigger?.classList.remove('is-previewing')
+  composerHoverPreviewTrigger = null
+}
+
+function showHoverPreview(kind, trigger) {
+  if (activeComposerPanel || window.matchMedia('(hover: none)').matches) return
+  window.clearTimeout(composerHoverPreviewCloseTimer)
+  composerHoverPreviewTrigger?.classList.remove('is-previewing')
+  composerHoverPreviewTrigger = trigger
+  trigger.classList.add('is-previewing')
+  renderHoverPreview(kind)
+  positionHoverPreview(trigger, kind)
+  composerHoverPreview.hidden = false
+  window.requestAnimationFrame(() => {
+    const selected = composerHoverPreviewWheel.querySelector('.selected')
+    if (selected) composerHoverPreviewWheel.scrollTop = Math.max(0, selected.offsetTop - composerHoverPreviewWheel.clientHeight / 2 + selected.offsetHeight / 2)
+  })
+}
+
+function scheduleHoverPreviewClose() {
+  window.clearTimeout(composerHoverPreviewCloseTimer)
+  composerHoverPreviewCloseTimer = window.setTimeout(closeHoverPreview, 170)
+}
+
+function closeComposerPanels({ returnFocus = false } = {}) {
+  window.clearTimeout(composerPanelCloseTimer)
+  const priorTrigger = activeComposerPanel === modelMenu
+    ? modelPolicyRow
+    : activeComposerPanel === effortMenu
+      ? effortPolicyRow
+      : activeComposerPanel === speedMenu
+        ? speedPolicyRow
+        : activeComposerPanel === historyDrawer
+          ? historyButton
+          : null
+  ;[modelMenu, effortMenu, speedMenu, historyDrawer].forEach(panel => { panel.hidden = true })
+  ;[modelPolicyRow, effortPolicyRow, speedPolicyRow, historyButton].forEach(trigger => trigger.setAttribute('aria-expanded', 'false'))
+  activeComposerPanel = null
+  composerPanelPinned = false
+  if (returnFocus) priorTrigger?.focus()
+}
+
+function openComposerPanel(panel, trigger, { pin = false, focusSearch = false } = {}) {
+  window.clearTimeout(composerPanelCloseTimer)
+  closeHoverPreview()
+  const samePanel = activeComposerPanel === panel && !panel.hidden
+  const shouldToggleClosed = pin && samePanel && composerPanelPinned
+  closeComposerPanels()
+  if (shouldToggleClosed) return
+  panel.hidden = false
+  trigger.setAttribute('aria-expanded', 'true')
+  activeComposerPanel = panel
+  composerPanelPinned = pin
+  if (panel === modelMenu) renderOptions()
+  if (panel === historyDrawer) renderThreadList()
   if (focusSearch) window.requestAnimationFrame(() => modelSearch.focus())
 }
 
+function closePolicySubmenus() {
+  closeComposerPanels()
+}
+
+function openPolicySubmenu(menu, trigger, { pin = true } = {}) {
+  openComposerPanel(menu, trigger, { pin })
+}
+
+function openModelMenu({ focusSearch = false, pin = true } = {}) {
+  openComposerPanel(modelMenu, modelPolicyRow, { pin, focusSearch })
+}
+
 function closeModelMenu({ returnFocus = false } = {}) {
-  modelMenu.hidden = true
-  if (returnFocus) modelPolicyRow.focus()
+  closeComposerPanels({ returnFocus })
 }
 
 function updateAdvancedFiltersButton() {
@@ -769,6 +940,13 @@ async function loadCatalog() {
     if (!response.ok) throw new Error(`catalog returned ${response.status}`)
     const payload = await response.json()
     catalog = (Array.isArray(payload.data) ? payload.data : []).map(normalizeModel).filter(model => model.id && model.id !== AUTO_MODEL.id)
+    const showcaseResponse = await fetch(OPENROUTER_SHOWCASE_MODELS_URL, { headers: { Accept: 'application/json' } }).catch(() => null)
+    if (showcaseResponse?.ok) {
+      const showcasePayload = await showcaseResponse.json()
+      showcaseCatalog = (Array.isArray(showcasePayload.data) ? showcasePayload.data : []).map(normalizeModel).filter(model => model.id && model.id !== AUTO_MODEL.id)
+    } else {
+      showcaseCatalog = []
+    }
     providerFilter.replaceChildren(new Option('Any provider', 'all'))
     const providers = [...new Map(catalog.map(model => [model.providerSlug, model.provider])).entries()].sort((a, b) => a[1].localeCompare(b[1]))
     providers.forEach(([slug, name]) => providerFilter.appendChild(new Option(name, slug)))
@@ -902,7 +1080,7 @@ async function consumeStream(response, assistant) {
 async function sendChat(text) {
   if (!accessToken) {
     pendingAccessPrompt = text
-    openAccessDialog('Enter the friends alpha code to send this request.')
+    openAccessDialog('Enter your invite code to send this request.')
     return
   }
   const previous = messages.filter(message => !message.pending && !message.error && ['user', 'assistant'].includes(message.role)).slice(-24).map(message => ({ role: message.role, content: message.text }))
@@ -960,9 +1138,8 @@ async function sendChat(text) {
         pendingAccessPrompt = text
         messages.splice(-2, 2)
         prompt.value = text
-        updateAccessUI()
-        openAccessDialog('Your alpha access expired. Enter the invite code again.')
-        setLocalStatus('Alpha access required')
+        openAccessDialog('Your access expired. Enter the invite code again.')
+        setLocalStatus('Access required')
       } else {
         assistant.error = true
         assistant.text = assistant.text ? `${assistant.text}\n\nConnection ended: ${error.message}` : `Model request failed: ${error.message}`
@@ -992,9 +1169,8 @@ async function exchangeAccess(code) {
     if (!response.ok || !payload.accessToken) throw new Error(payload.error?.message || payload.message || 'That invite code did not work.')
     accessToken = payload.accessToken
     localStorage.setItem(ACCESS_KEY, accessToken)
-    updateAccessUI()
     if (signInDialog.open) signInDialog.close()
-    setLocalStatus('Friends alpha active')
+    setLocalStatus('Private preview active')
     const queued = pendingAccessPrompt
     pendingAccessPrompt = ''
     if (queued) await sendChat(queued)
@@ -1020,9 +1196,75 @@ async function loadServiceStatus() {
   }
 }
 
-modelPolicyRow.addEventListener('click', () => openModelMenu({ focusSearch: true }))
-effortPolicyRow.addEventListener('click', () => openPolicySubmenu(effortMenu, effortPolicyRow))
-speedPolicyRow.addEventListener('click', () => openPolicySubmenu(speedMenu, speedPolicyRow))
+modelPolicyRow.addEventListener('click', () => {
+  closeHoverPreview()
+  openModelMenu({ focusSearch: true, pin: true })
+})
+effortPolicyRow.addEventListener('click', () => {
+  closeHoverPreview()
+  openPolicySubmenu(effortMenu, effortPolicyRow, { pin: true })
+})
+speedPolicyRow.addEventListener('click', () => {
+  closeHoverPreview()
+  openPolicySubmenu(speedMenu, speedPolicyRow, { pin: true })
+})
+historyButton.addEventListener('click', () => {
+  closeHoverPreview()
+  openHistoryDrawer({ pin: true })
+})
+
+;[
+  [modelPolicyRow, 'model'],
+  [effortPolicyRow, 'effort'],
+  [speedPolicyRow, 'speed'],
+  [historyButton, 'chats']
+].forEach(([trigger, kind]) => {
+  trigger.addEventListener('pointerenter', event => {
+    if (event.pointerType === 'touch') return
+    showHoverPreview(kind, trigger)
+  })
+  trigger.addEventListener('pointerleave', event => {
+    if (event.pointerType === 'touch') return
+    scheduleHoverPreviewClose()
+  })
+})
+
+composerHoverPreview.addEventListener('pointerenter', event => {
+  if (event.pointerType === 'touch') return
+  window.clearTimeout(composerHoverPreviewCloseTimer)
+})
+composerHoverPreview.addEventListener('pointerleave', event => {
+  if (event.pointerType === 'touch') return
+  scheduleHoverPreviewClose()
+})
+
+composerHoverPreview.addEventListener('click', event => {
+  const option = event.target.closest('[data-preview-action]')
+  if (!option) return
+  const { previewAction: action, previewValue: value } = option.dataset
+  closeHoverPreview()
+  if (action === 'model') {
+    chooseModel(value)
+  } else if (action === 'effort' && Object.hasOwn(EFFORT_LEVELS, value)) {
+    selectedEffort = value
+    updatePolicyDisplay()
+    saveState()
+  } else if (action === 'speed' && Object.hasOwn(SPEED_LEVELS, value)) {
+    selectedSpeed = value
+    updatePolicyDisplay()
+    saveState()
+  } else if (action === 'thread') {
+    activateThread(value)
+  } else if (action === 'new-chat') {
+    createNewThread()
+  }
+})
+
+composer.addEventListener('pointerenter', () => window.clearTimeout(composerPanelCloseTimer))
+composer.addEventListener('pointerleave', () => {
+  if (composerPanelPinned || !activeComposerPanel) return
+  composerPanelCloseTimer = window.setTimeout(() => closeComposerPanels(), 160)
+})
 
 effortMenu.addEventListener('click', event => {
   const option = event.target.closest('[data-effort]')
@@ -1086,17 +1328,16 @@ resetFiltersButton.addEventListener('click', () => {
 }))
 
 document.addEventListener('pointerdown', event => {
-  if (!modelMenu.hidden && !modelMenu.contains(event.target) && !homeModel.contains(event.target)) {
-    closeModelMenu()
+  if (!composer.contains(event.target) && !composerHoverPreview.contains(event.target) && !homeModel.contains(event.target)) {
+    closeComposerPanels()
+    closeHoverPreview()
   }
-  const insidePolicy = modelPolicyRow.contains(event.target) || effortPolicyRow.contains(event.target) || speedPolicyRow.contains(event.target) || effortMenu.contains(event.target) || speedMenu.contains(event.target)
-  if (!insidePolicy) closePolicySubmenus()
 })
 
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape') return
-  if (!modelMenu.hidden) return closeModelMenu({ returnFocus: true })
-  if (!effortMenu.hidden || !speedMenu.hidden) return closePolicySubmenus()
+  if (activeComposerPanel) closeComposerPanels({ returnFocus: true })
+  else closeHoverPreview()
 })
 
 prompt.addEventListener('input', () => {
@@ -1129,11 +1370,6 @@ composer.addEventListener('submit', async event => {
   }
 })
 
-signInButton.addEventListener('click', () => {
-  if (accessToken) openHistoryDrawer()
-  else openAccessDialog()
-})
-
 accessDialogClose.addEventListener('click', () => signInDialog.close())
 accessForm.addEventListener('submit', async event => {
   event.preventDefault()
@@ -1142,9 +1378,7 @@ accessForm.addEventListener('submit', async event => {
   await exchangeAccess(code)
 })
 
-historyButton.addEventListener('click', openHistoryDrawer)
 historyCloseButton.addEventListener('click', closeHistoryDrawer)
-historyBackdrop.addEventListener('click', closeHistoryDrawer)
 newChatButton.addEventListener('click', createNewThread)
 threadList.addEventListener('click', event => {
   const remove = event.target.closest('[data-delete-thread]')
@@ -1191,7 +1425,7 @@ $('#promptExamples').addEventListener('click', event => {
 })
 
 const FOOTER_INFO = {
-  privacy: ['Privacy', 'Your conversation history stays in this browser. Sent prompts and model responses are processed by the selected provider and recorded in PolySwap’s private launch log so the operator can support the alpha and learn which workflows are useful.'],
+  privacy: ['Privacy', 'Your conversation history stays in this browser. Sent prompts and model responses are processed by the selected provider and recorded in PolySwap’s private launch log for support and usage learning.'],
   terms: ['Terms', 'PolySwap is an early product. Review important outputs before relying on them; model responses can be incomplete or wrong.'],
   pricing: ['Pricing', 'The model picker shows each route\u2019s available usage pricing. Accounts and paid plans are not live yet.'],
   docs: ['Docs', 'Choose the model, effort, and speed. Effort is Quick, Standard, or Deep. Speed is Standard or Fast. PolySwap translates those choices into reasoning depth, provider routing, and delivery priority while keeping the workspace stable.']
@@ -1216,7 +1450,6 @@ fileInput.addEventListener('change', () => {
 async function initialize() {
   restoreState()
   updatePolicyDisplay()
-  updateAccessUI()
   renderOptions()
   const invite = new URL(window.location.href).searchParams.get('invite')
   if (invite && !accessToken) {
