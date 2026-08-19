@@ -89,7 +89,7 @@
               <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
             </button>
             <button class="composer-control" id="effortPolicyRow" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="effortMenu">
-              <span class="composer-control-copy"><small>Effort</small><strong id="effortPolicyValue">Medium</strong></span>
+              <span class="composer-control-copy"><small>Effort</small><strong id="effortPolicyValue">Standard</strong></span>
               <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
             </button>
             <button class="composer-control" id="speedPolicyRow" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="speedMenu">
@@ -100,16 +100,15 @@
 
           <div class="work-policy-submenu" id="effortMenu" role="menu" aria-label="Choose effort" hidden>
             <p>Effort</p>
-            <button type="button" role="menuitemradio" data-effort="light"><span><strong>Light</strong><small>Quick, direct work</small></span><i aria-hidden="true">✓</i></button>
-            <button type="button" role="menuitemradio" data-effort="medium"><span><strong>Medium</strong><small>Balanced reasoning</small></span><i aria-hidden="true">✓</i></button>
-            <button type="button" role="menuitemradio" data-effort="high"><span><strong>High</strong><small>Think and verify</small></span><i aria-hidden="true">✓</i></button>
+            <button type="button" role="menuitemradio" data-effort="quick"><span><strong>Quick</strong><small>Direct response</small></span><i aria-hidden="true">✓</i></button>
+            <button type="button" role="menuitemradio" data-effort="standard"><span><strong>Standard</strong><small>Balanced work</small></span><i aria-hidden="true">✓</i></button>
+            <button type="button" role="menuitemradio" data-effort="deep"><span><strong>Deep</strong><small>Thorough and verified</small></span><i aria-hidden="true">✓</i></button>
           </div>
 
           <div class="work-policy-submenu speed-policy-menu" id="speedMenu" role="menu" aria-label="Choose speed" hidden>
             <p>Speed</p>
-            <button type="button" role="menuitemradio" data-speed="economy"><span><strong>Economy</strong><small>Lowest-cost route</small></span><i aria-hidden="true">✓</i></button>
-            <button type="button" role="menuitemradio" data-speed="standard"><span><strong>Standard</strong><small>Balanced delivery</small></span><i aria-hidden="true">✓</i></button>
-            <button type="button" role="menuitemradio" data-speed="fast"><span><strong>Fast</strong><small>Priority route</small></span><i aria-hidden="true">✓</i></button>
+            <button type="button" role="menuitemradio" data-speed="standard"><span><strong>Standard</strong><small>Normal delivery</small></span><i aria-hidden="true">✓</i></button>
+            <button type="button" role="menuitemradio" data-speed="fast"><span><strong>Fast</strong><small>Priority delivery</small></span><i aria-hidden="true">✓</i></button>
           </div>
 
           <textarea id="prompt" rows="3" placeholder="Ask anything or describe the work" aria-label="Message PolySwap"></textarea>

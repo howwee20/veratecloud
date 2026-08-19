@@ -90,15 +90,20 @@ const AUTO_MODEL = {
 }
 
 const EFFORT_LEVELS = {
-  light: { label: 'Light', reasoning: 'low', budget: 0.08, maxTokens: 2048 },
-  medium: { label: 'Medium', reasoning: 'medium', budget: 0.2, maxTokens: 4096 },
-  high: { label: 'High', reasoning: 'high', budget: 0.4, maxTokens: 8192 }
+  quick: { label: 'Quick', reasoning: 'low', budget: 0.08, maxTokens: 2048 },
+  standard: { label: 'Standard', reasoning: 'medium', budget: 0.2, maxTokens: 4096 },
+  deep: { label: 'Deep', reasoning: 'high', budget: 0.4, maxTokens: 8192 }
 }
 
 const SPEED_LEVELS = {
-  economy: { label: 'Economy' },
   standard: { label: 'Standard' },
   fast: { label: 'Fast' }
+}
+
+const LEGACY_EFFORT_LEVELS = {
+  light: 'quick',
+  medium: 'standard',
+  high: 'deep'
 }
 
 const $ = selector => document.querySelector(selector)
@@ -155,7 +160,7 @@ document.body.appendChild(modelMenu)
 let catalog = []
 let selectedModel = AUTO_MODEL
 let preferredModelId = AUTO_MODEL.id
-let selectedEffort = 'medium'
+let selectedEffort = 'standard'
 let selectedSpeed = 'standard'
 let catalogFilter = 'all'
 let favorites = []
@@ -662,7 +667,7 @@ function formatUsage(usage, modelId) {
 }
 
 function formatPolicy(effort, speed) {
-  return `${EFFORT_LEVELS[effort]?.label || 'Medium'} · ${SPEED_LEVELS[speed]?.label || 'Standard'}`
+  return `${EFFORT_LEVELS[effort]?.label || 'Standard'} · ${SPEED_LEVELS[speed]?.label || 'Standard'}`
 }
 
 function renderMessages() {
@@ -734,7 +739,9 @@ function restoreState() {
   try {
     const state = JSON.parse(localStorage.getItem(STATE_KEY) || '{}')
     preferredModelId = typeof state.selectedModel === 'string' ? state.selectedModel : AUTO_MODEL.id
-    selectedEffort = Object.hasOwn(EFFORT_LEVELS, state.selectedEffort) ? state.selectedEffort : 'medium'
+    selectedEffort = Object.hasOwn(EFFORT_LEVELS, state.selectedEffort)
+      ? state.selectedEffort
+      : LEGACY_EFFORT_LEVELS[state.selectedEffort] || 'standard'
     selectedSpeed = Object.hasOwn(SPEED_LEVELS, state.selectedSpeed) ? state.selectedSpeed : 'standard'
     prompt.value = typeof state.draft === 'string' ? state.draft : ''
     favorites = Array.isArray(state.favorites) ? state.favorites.filter(value => typeof value === 'string').slice(0, 100) : []
@@ -742,7 +749,7 @@ function restoreState() {
     legacyMessages = cleanMessages(state.messages)
   } catch {
     preferredModelId = AUTO_MODEL.id
-    selectedEffort = 'medium'
+    selectedEffort = 'standard'
     selectedSpeed = 'standard'
   }
   loadThreads(legacyMessages)
@@ -1187,7 +1194,7 @@ const FOOTER_INFO = {
   privacy: ['Privacy', 'Your conversation history stays in this browser. Sent prompts and model responses are processed by the selected provider and recorded in PolySwap’s private launch log so the operator can support the alpha and learn which workflows are useful.'],
   terms: ['Terms', 'PolySwap is an early product. Review important outputs before relying on them; model responses can be incomplete or wrong.'],
   pricing: ['Pricing', 'The model picker shows each route\u2019s available usage pricing. Accounts and paid plans are not live yet.'],
-  docs: ['Docs', 'Choose the model, effort, and speed. PolySwap translates those choices into reasoning depth, provider routing, and delivery priority while keeping the workspace stable.']
+  docs: ['Docs', 'Choose the model, effort, and speed. Effort is Quick, Standard, or Deep. Speed is Standard or Fast. PolySwap translates those choices into reasoning depth, provider routing, and delivery priority while keeping the workspace stable.']
 }
 
 document.querySelector('.site-footer').addEventListener('click', event => {

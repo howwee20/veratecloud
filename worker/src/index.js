@@ -3,19 +3,19 @@ const CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const ACCESS_TTL_SECONDS = 60 * 60 * 24 * 30
 
 const EFFORT_POLICIES = {
-  light: {
+  quick: {
     reasoning: 'low',
     maxTokens: 2048,
     maxBudget: 0.08,
     instruction: 'Work directly. Use only the reasoning needed for a correct, concise answer.'
   },
-  medium: {
+  standard: {
     reasoning: 'medium',
     maxTokens: 4096,
     maxBudget: 0.2,
     instruction: 'Use balanced reasoning. Check the important assumptions before answering.'
   },
-  high: {
+  deep: {
     reasoning: 'high',
     maxTokens: 8192,
     maxBudget: 0.4,
@@ -24,9 +24,14 @@ const EFFORT_POLICIES = {
 }
 
 const SPEED_POLICIES = {
-  economy: { serviceTier: 'flex', provider: { sort: 'price' } },
   standard: {},
   fast: { serviceTier: 'fast', provider: { sort: 'throughput' } }
+}
+
+const LEGACY_EFFORT_POLICIES = {
+  light: 'quick',
+  medium: 'standard',
+  high: 'deep'
 }
 
 const json = (payload, status = 200, headers = {}) => new Response(JSON.stringify(payload), {
@@ -266,7 +271,9 @@ async function handleChat(request, env, ctx, cors) {
   if (typeof body.model !== 'string' || body.model.length > 160 || !validateMessages(body.messages)) {
     return json({ error: { message: 'The model or conversation payload is invalid.' } }, 400, cors)
   }
-  const effort = Object.hasOwn(EFFORT_POLICIES, body.effort) ? body.effort : 'medium'
+  const effort = Object.hasOwn(EFFORT_POLICIES, body.effort)
+    ? body.effort
+    : LEGACY_EFFORT_POLICIES[body.effort] || 'standard'
   const speed = Object.hasOwn(SPEED_POLICIES, body.speed) ? body.speed : 'standard'
   const effortPolicy = EFFORT_POLICIES[effort]
   const speedPolicy = SPEED_POLICIES[speed]
