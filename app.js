@@ -107,6 +107,10 @@ const attachmentRow = $('#attachmentRow')
 const localState = $('#localState')
 const signInButton = $('#signInButton')
 const signInDialog = $('#signInDialog')
+const homeModel = $('#homeModel')
+let homeModelMark = $('#homeModelMark')
+const homeModelName = $('#homeModelName')
+const homeModelMeta = $('#homeModelMeta')
 
 let catalog = []
 let selectedModel = AUTO_MODEL
@@ -119,6 +123,9 @@ let messages = []
 let activeController = null
 let renderFrame = null
 let modelMenuTimer = null
+let homeModelTimer = null
+let homeModelIndex = 0
+let homeModels = []
 
 function newId(prefix) {
   const value = window.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
@@ -202,6 +209,52 @@ function createProviderMark(model, className = 'provider-mark') {
     mark.textContent = model.badge || '?'
   }
   return mark
+}
+
+function featuredHomeModels() {
+  const providerOrder = ['openai', 'anthropic', 'google', 'x-ai', 'deepseek', 'meta-llama', 'mistralai']
+  const featured = providerOrder.map(slug => catalog.find(model => model.providerSlug === slug && (model.supportsTools || model.supportsImages)) || catalog.find(model => model.providerSlug === slug)).filter(Boolean)
+  if (featured.length >= 3) return featured
+  return catalog.slice(0, 6)
+}
+
+function homeModelDescription(model) {
+  const details = [model.provider]
+  if (model.isFree) details.push('Free')
+  if (model.supportsTools) details.push('Tools')
+  if (model.supportsImages) details.push('Vision')
+  if (details.length < 3) details.push(formatContext(model.contextLength))
+  return details.slice(0, 3).join(' · ')
+}
+
+function paintHomeModel(model) {
+  const nextMark = createProviderMark(model, 'home-model-mark')
+  nextMark.id = 'homeModelMark'
+  homeModelMark.replaceWith(nextMark)
+  homeModelMark = nextMark
+  homeModelName.textContent = model.name
+  homeModelMeta.textContent = homeModelDescription(model)
+}
+
+function rotateHomeModel() {
+  if (!homeModels.length || document.body.classList.contains('has-conversation')) return
+  homeModel.classList.add('is-switching')
+  window.setTimeout(() => {
+    homeModelIndex = (homeModelIndex + 1) % homeModels.length
+    paintHomeModel(homeModels[homeModelIndex])
+    homeModel.classList.remove('is-switching')
+  }, 210)
+}
+
+function startHomeModelRotation() {
+  if (homeModelTimer) window.clearInterval(homeModelTimer)
+  homeModels = featuredHomeModels()
+  homeModelIndex = 0
+  if (!homeModels.length) return
+  paintHomeModel(homeModels[0])
+  if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && homeModels.length > 1) {
+    homeModelTimer = window.setInterval(rotateHomeModel, 4400)
+  }
 }
 
 function formatContext(value) {
@@ -442,6 +495,7 @@ async function loadCatalog() {
     const providers = [...new Map(catalog.map(model => [model.providerSlug, model.provider])).entries()].sort((a, b) => a[1].localeCompare(b[1]))
     providers.forEach(([slug, name]) => providerFilter.appendChild(new Option(name, slug)))
     chooseModel(preferredModelId, false)
+    startHomeModelRotation()
     setLocalStatus('')
   } catch (error) {
     catalog = []
@@ -711,6 +765,8 @@ composer.addEventListener('submit', async event => {
 signInButton.addEventListener('click', () => {
   if (typeof signInDialog.showModal === 'function') signInDialog.showModal()
 })
+
+homeModel.addEventListener('click', () => openModelMenu())
 
 $('#attachButton').addEventListener('click', () => fileInput.click())
 fileInput.addEventListener('change', () => {
