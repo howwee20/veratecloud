@@ -2,7 +2,10 @@ const OPENROUTER_MODELS_URL = 'https://openrouter.ai/api/v1/models?output_modali
 const POLYSWAP_API_ROOT = document.querySelector('meta[name="polyswap-api"]')?.content.replace(/\/$/, '') || 'https://api.polyswap.ai'
 const STATE_KEY = 'polyswap-public-v2'
 const SESSION_KEY = 'polyswap-anonymous-session-v1'
-const THREAD_KEY = 'polyswap-thread-v1'
+const LEGACY_THREAD_KEY = 'polyswap-thread-v1'
+const THREADS_KEY = 'polyswap-private-threads-v1'
+const ACTIVE_THREAD_KEY = 'polyswap-active-thread-v1'
+const ACCESS_KEY = 'polyswap-alpha-access-v1'
 
 const LOBE_ICON_ROOT = 'https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@1.94.0/icons'
 const lobeIcon = filename => `${LOBE_ICON_ROOT}/${filename}`
@@ -120,6 +123,17 @@ const attachmentRow = $('#attachmentRow')
 const localState = $('#localState')
 const signInButton = $('#signInButton')
 const signInDialog = $('#signInDialog')
+const accessForm = $('#accessForm')
+const accessDialogClose = $('#accessDialogClose')
+const accessCodeInput = $('#accessCodeInput')
+const accessError = $('#accessError')
+const accessSubmitButton = $('#accessSubmitButton')
+const historyButton = $('#historyButton')
+const historyDrawer = $('#historyDrawer')
+const historyBackdrop = $('#historyBackdrop')
+const historyCloseButton = $('#historyCloseButton')
+const newChatButton = $('#newChatButton')
+const threadList = $('#threadList')
 const infoDialog = $('#infoDialog')
 const infoDialogTitle = $('#infoDialogTitle')
 const infoDialogBody = $('#infoDialogBody')
@@ -139,6 +153,10 @@ const speedPolicyValue = $('#speedPolicyValue')
 const effortMenu = $('#effortMenu')
 const speedMenu = $('#speedMenu')
 
+// Keep the large picker outside the transformed composer so `position: fixed`
+// is truly viewport-relative and can never crop the writing surface beneath it.
+document.body.appendChild(modelMenu)
+
 let catalog = []
 let selectedModel = AUTO_MODEL
 let preferredModelId = AUTO_MODEL.id
@@ -149,8 +167,12 @@ let favorites = []
 let recentModels = []
 let attachments = []
 let messages = []
+let threads = []
+let accessToken = localStorage.getItem(ACCESS_KEY) || ''
+let pendingAccessPrompt = ''
 let activeController = null
 let renderFrame = null
+let policyMenuTimer = null
 let homeModelTimer = null
 let homeModelIndex = 0
 let homeModels = []
@@ -170,7 +192,205 @@ function persistentId(key, prefix) {
 }
 
 const sessionId = persistentId(SESSION_KEY, 'anon')
-let threadId = persistentId(THREAD_KEY, 'thread')
+let threadId = localStorage.getItem(ACTIVE_THREAD_KEY) || ''
+
+function cleanMessages(value) {
+  return Array.isArray(value)
+    ? value.filter(message => message && ['user', 'assistant'].includes(message.role) && typeof message.text === 'string')
+      .map(message => ({
+        role: message.role,
+        text: message.text,
+        ...(message.meta ? { meta: String(message.meta) } : {}),
+        ...(message.error ? { error: true } : {}),
+        ...(message.modelId ? { modelId: String(message.modelId) } : {})
+      }))
+      .slice(-60)
+    : []
+}
+
+function untitledThread(id = newId('thread')) {
+  const now = new Date().toISOString()
+  return { id, title: 'New chat', modelId: AUTO_MODEL.id, messages: [], createdAt: now, updatedAt: now }
+}
+
+function currentThread() {
+  return threads.find(thread => thread.id === threadId) || null
+}
+
+function threadTitle(threadMessages) {
+  const firstUser = threadMessages.find(message => message.role === 'user')?.text?.replace(/\s+/g, ' ').trim()
+  if (!firstUser) return 'New chat'
+  return firstUser.length > 44 ? `${firstUser.slice(0, 43).trim()}…` : firstUser
+}
+
+function persistThreads() {
+  try {
+    const kept = threads.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))).slice(0, 30)
+    localStorage.setItem(THREADS_KEY, JSON.stringify(kept))
+    localStorage.setItem(ACTIVE_THREAD_KEY, threadId)
+  } catch {
+    setLocalStatus('Browser storage is full')
+  }
+}
+
+function syncCurrentThread() {
+  let thread = currentThread()
+  if (!thread) {
+    thread = untitledThread(threadId || newId('thread'))
+    threadId = thread.id
+    threads.unshift(thread)
+  }
+  thread.messages = cleanMessages(messages.filter(message => !message.pending))
+  thread.modelId = preferredModelId
+  thread.title = threadTitle(thread.messages)
+  thread.updatedAt = new Date().toISOString()
+  persistThreads()
+  renderThreadList()
+}
+
+function activateThread(id) {
+  if (activeController) activeController.abort()
+  syncCurrentThread()
+  const thread = threads.find(item => item.id === id)
+  if (!thread) return
+  threadId = thread.id
+  messages = cleanMessages(thread.messages)
+  preferredModelId = thread.modelId || AUTO_MODEL.id
+  chooseModel(preferredModelId, false)
+  prompt.value = ''
+  localStorage.setItem(ACTIVE_THREAD_KEY, threadId)
+  renderMessages()
+  updateSubmitState()
+  renderThreadList()
+  closeHistoryDrawer()
+}
+
+function createNewThread() {
+  if (activeController) activeController.abort()
+  syncCurrentThread()
+  const thread = untitledThread()
+  threads.unshift(thread)
+  threadId = thread.id
+  messages = []
+  preferredModelId = AUTO_MODEL.id
+  chooseModel(AUTO_MODEL.id, false)
+  prompt.value = ''
+  persistThreads()
+  renderMessages()
+  updateSubmitState()
+  renderThreadList()
+  closeHistoryDrawer()
+  prompt.focus()
+}
+
+function removeThread(id) {
+  const removingActive = id === threadId
+  threads = threads.filter(thread => thread.id !== id)
+  if (!threads.length) threads.push(untitledThread())
+  if (removingActive) {
+    const next = threads[0]
+    threadId = next.id
+    messages = cleanMessages(next.messages)
+    preferredModelId = next.modelId || AUTO_MODEL.id
+    chooseModel(preferredModelId, false)
+    prompt.value = ''
+    renderMessages()
+    updateSubmitState()
+  }
+  persistThreads()
+  renderThreadList()
+}
+
+function loadThreads(legacyMessages = []) {
+  try {
+    const stored = JSON.parse(localStorage.getItem(THREADS_KEY) || '[]')
+    threads = Array.isArray(stored) ? stored.filter(thread => thread && typeof thread.id === 'string').map(thread => ({
+      id: thread.id,
+      title: typeof thread.title === 'string' ? thread.title : 'New chat',
+      modelId: typeof thread.modelId === 'string' ? thread.modelId : AUTO_MODEL.id,
+      messages: cleanMessages(thread.messages),
+      createdAt: thread.createdAt || new Date().toISOString(),
+      updatedAt: thread.updatedAt || thread.createdAt || new Date().toISOString()
+    })) : []
+  } catch {
+    threads = []
+  }
+  if (!threads.length) {
+    const legacyId = localStorage.getItem(LEGACY_THREAD_KEY) || newId('thread')
+    const thread = untitledThread(legacyId)
+    thread.messages = cleanMessages(legacyMessages)
+    thread.title = threadTitle(thread.messages)
+    threads = [thread]
+  }
+  if (!threadId || !threads.some(thread => thread.id === threadId)) threadId = threads[0].id
+  const active = currentThread()
+  messages = cleanMessages(active?.messages)
+  preferredModelId = active?.modelId || preferredModelId
+  persistThreads()
+  renderThreadList()
+}
+
+function formatThreadTime(value) {
+  const date = new Date(value)
+  if (Number.isNaN(date.valueOf())) return ''
+  const today = new Date()
+  return date.toDateString() === today.toDateString()
+    ? date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+    : date.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
+function renderThreadList() {
+  if (!threadList) return
+  threadList.replaceChildren()
+  const fragment = document.createDocumentFragment()
+  threads.slice().sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt))).forEach(thread => {
+    const row = document.createElement('div')
+    row.className = `thread-row${thread.id === threadId ? ' active' : ''}`
+    const open = document.createElement('button')
+    open.type = 'button'
+    open.className = 'thread-open'
+    open.dataset.thread = thread.id
+    const title = document.createElement('strong')
+    title.textContent = thread.title || 'New chat'
+    const time = document.createElement('span')
+    time.textContent = formatThreadTime(thread.updatedAt)
+    open.append(title, time)
+    const remove = document.createElement('button')
+    remove.type = 'button'
+    remove.className = 'thread-delete'
+    remove.dataset.deleteThread = thread.id
+    remove.setAttribute('aria-label', `Delete ${thread.title || 'chat'}`)
+    remove.textContent = '×'
+    row.append(open, remove)
+    fragment.appendChild(row)
+  })
+  threadList.appendChild(fragment)
+}
+
+function openHistoryDrawer() {
+  renderThreadList()
+  historyDrawer.hidden = false
+  historyBackdrop.hidden = false
+  document.body.classList.add('history-open')
+}
+
+function closeHistoryDrawer() {
+  historyDrawer.hidden = true
+  historyBackdrop.hidden = true
+  document.body.classList.remove('history-open')
+}
+
+function updateAccessUI() {
+  signInButton.textContent = accessToken ? 'Alpha active' : 'Alpha access'
+  signInButton.classList.toggle('active', Boolean(accessToken))
+}
+
+function openAccessDialog(message = '') {
+  accessError.textContent = message
+  accessCodeInput.value = ''
+  if (typeof signInDialog.showModal === 'function' && !signInDialog.open) signInDialog.showModal()
+  window.requestAnimationFrame(() => accessCodeInput.focus())
+}
 
 function titleCase(value) {
   return value.split(/[-_]/).filter(Boolean).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
@@ -376,7 +596,7 @@ function renderOptions() {
 function updatePolicyDisplay() {
   const effort = EFFORT_LEVELS[selectedEffort]
   const speed = SPEED_LEVELS[selectedSpeed]
-  policySummary.textContent = `${selectedModel.name} · ${effort.label} · ${speed.label}`
+  policySummary.textContent = selectedModel.name
   policyButton.setAttribute('aria-label', `Model ${selectedModel.name}, ${effort.label} effort, ${speed.label} speed`)
   modelPolicyValue.textContent = selectedModel.name
   effortPolicyValue.textContent = effort.label
@@ -411,6 +631,29 @@ function openPolicyMenu() {
 function togglePolicyMenu() {
   if (policyMenu.hidden) openPolicyMenu()
   else closePolicyMenu()
+}
+
+function clearPolicyMenuTimer() {
+  if (!policyMenuTimer) return
+  window.clearTimeout(policyMenuTimer)
+  policyMenuTimer = null
+}
+
+function schedulePolicyMenuOpen() {
+  clearPolicyMenuTimer()
+  policyMenuTimer = window.setTimeout(() => {
+    openPolicyMenu()
+    policyMenuTimer = null
+  }, 110)
+}
+
+function schedulePolicyMenuClose() {
+  clearPolicyMenuTimer()
+  policyMenuTimer = window.setTimeout(() => {
+    const stillInside = policyButton.matches(':hover') || policyMenu.matches(':hover') || effortMenu.matches(':hover') || speedMenu.matches(':hover')
+    if (!stillInside) closePolicyMenu()
+    policyMenuTimer = null
+  }, 220)
 }
 
 function openPolicySubmenu(menu, trigger) {
@@ -473,7 +716,7 @@ function renderMessages() {
   if (!messages.length) return
   const turns = document.createElement('div')
   turns.className = 'turns'
-  messages.forEach(message => {
+  messages.forEach((message, index) => {
     const turn = document.createElement('div')
     if (message.role === 'user') {
       turn.className = 'user-turn'
@@ -489,6 +732,20 @@ function renderMessages() {
         meta.className = 'message-meta'
         meta.textContent = message.meta
         turn.appendChild(meta)
+      }
+      if (!message.pending && !message.error && message.text) {
+        const actions = document.createElement('div')
+        actions.className = 'message-actions'
+        const copy = document.createElement('button')
+        copy.type = 'button'
+        copy.dataset.copyMessage = String(index)
+        copy.textContent = 'Copy'
+        const retry = document.createElement('button')
+        retry.type = 'button'
+        retry.dataset.retryMessage = String(index)
+        retry.textContent = 'Retry'
+        actions.append(copy, retry)
+        turn.appendChild(actions)
       }
     }
     turns.appendChild(turn)
@@ -506,18 +763,19 @@ function scheduleRender() {
 }
 
 function saveState() {
+  syncCurrentThread()
   localStorage.setItem(STATE_KEY, JSON.stringify({
     selectedModel: preferredModelId,
     selectedEffort,
     selectedSpeed,
     draft: prompt.value,
     favorites,
-    recentModels,
-    messages: messages.filter(message => !message.pending).slice(-30)
+    recentModels
   }))
 }
 
 function restoreState() {
+  let legacyMessages = []
   try {
     const state = JSON.parse(localStorage.getItem(STATE_KEY) || '{}')
     preferredModelId = typeof state.selectedModel === 'string' ? state.selectedModel : AUTO_MODEL.id
@@ -526,14 +784,13 @@ function restoreState() {
     prompt.value = typeof state.draft === 'string' ? state.draft : ''
     favorites = Array.isArray(state.favorites) ? state.favorites.filter(value => typeof value === 'string').slice(0, 100) : []
     recentModels = Array.isArray(state.recentModels) ? state.recentModels.filter(value => typeof value === 'string').slice(0, 12) : []
-    messages = Array.isArray(state.messages)
-      ? state.messages.filter(message => message && ['user', 'assistant'].includes(message.role) && typeof message.text === 'string')
-      : []
+    legacyMessages = cleanMessages(state.messages)
   } catch {
     preferredModelId = AUTO_MODEL.id
     selectedEffort = 'medium'
     selectedSpeed = 'standard'
   }
+  loadThreads(legacyMessages)
   renderMessages()
   updateSubmitState()
 }
@@ -640,7 +897,10 @@ function contentText(content) {
 async function consumeStream(response, assistant) {
   if (!response.ok) {
     const payload = await response.json().catch(() => ({}))
-    throw new Error(payload.error?.message || payload.message || `PolySwap returned ${response.status}`)
+    const error = new Error(payload.error?.message || payload.message || `PolySwap returned ${response.status}`)
+    error.code = payload.error?.code || payload.code || ''
+    error.status = response.status
+    throw error
   }
   if (!response.body) throw new Error('The browser did not receive a response stream.')
   const reader = response.body.getReader()
@@ -652,7 +912,11 @@ async function consumeStream(response, assistant) {
     const data = trimmed.slice(5).trim()
     if (!data || data === '[DONE]') return
     const chunk = JSON.parse(data)
-    if (chunk.error) throw new Error(chunk.error.message || 'PolySwap stream error')
+    if (chunk.error) {
+      const error = new Error(chunk.error.message || 'PolySwap stream error')
+      error.code = chunk.error.code || ''
+      throw error
+    }
     if (chunk.model) assistant.modelId = chunk.model
     if (chunk.usage) assistant.usage = chunk.usage
     if (chunk.service_tier) assistant.serviceTier = chunk.service_tier
@@ -674,6 +938,11 @@ async function consumeStream(response, assistant) {
 }
 
 async function sendChat(text) {
+  if (!accessToken) {
+    pendingAccessPrompt = text
+    openAccessDialog('Enter the friends alpha code to send this request.')
+    return
+  }
   const previous = messages.filter(message => !message.pending && !message.error && ['user', 'assistant'].includes(message.role)).slice(-24).map(message => ({ role: message.role, content: message.text }))
   const content = await buildUserContent(text)
   const displaySuffix = attachments.length ? `\n\n${attachments.map(file => `Attached: ${file.name}`).join('\n')}` : ''
@@ -696,7 +965,8 @@ async function sendChat(text) {
       method: 'POST',
       signal: activeController.signal,
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-PolySwap-Access': accessToken
       },
       body: JSON.stringify({
         sessionId,
@@ -722,10 +992,21 @@ async function sendChat(text) {
       assistant.meta = `${formatUsage(assistant.usage, assistant.modelId)} · ${formatPolicy(effort, speed)} · Stopped`
       setLocalStatus('Response stopped')
     } else {
-      assistant.error = true
-      assistant.text = assistant.text ? `${assistant.text}\n\nConnection ended: ${error.message}` : `Model request failed: ${error.message}`
-      assistant.meta = `${formatUsage(assistant.usage, assistant.modelId)} · ${formatPolicy(effort, speed)}`
-      setLocalStatus('Request failed · see message')
+      if (error.code === 'ACCESS_REQUIRED') {
+        accessToken = ''
+        localStorage.removeItem(ACCESS_KEY)
+        pendingAccessPrompt = text
+        messages.splice(-2, 2)
+        prompt.value = text
+        updateAccessUI()
+        openAccessDialog('Your alpha access expired. Enter the invite code again.')
+        setLocalStatus('Alpha access required')
+      } else {
+        assistant.error = true
+        assistant.text = assistant.text ? `${assistant.text}\n\nConnection ended: ${error.message}` : `Model request failed: ${error.message}`
+        assistant.meta = `${formatUsage(assistant.usage, assistant.modelId)} · ${formatPolicy(effort, speed)}`
+        setLocalStatus('Request failed · see message')
+      }
     }
   } finally {
     activeController = null
@@ -735,7 +1016,55 @@ async function sendChat(text) {
   }
 }
 
+async function exchangeAccess(code) {
+  accessSubmitButton.disabled = true
+  accessSubmitButton.textContent = 'Checking…'
+  accessError.textContent = ''
+  try {
+    const response = await fetch(`${POLYSWAP_API_ROOT}/v1/access`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionId, code })
+    })
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok || !payload.accessToken) throw new Error(payload.error?.message || payload.message || 'That invite code did not work.')
+    accessToken = payload.accessToken
+    localStorage.setItem(ACCESS_KEY, accessToken)
+    updateAccessUI()
+    if (signInDialog.open) signInDialog.close()
+    setLocalStatus('Friends alpha active')
+    const queued = pendingAccessPrompt
+    pendingAccessPrompt = ''
+    if (queued) await sendChat(queued)
+  } catch (error) {
+    accessError.textContent = error.message
+    if (!signInDialog.open && typeof signInDialog.showModal === 'function') signInDialog.showModal()
+    accessCodeInput.focus()
+    accessCodeInput.select()
+  } finally {
+    accessSubmitButton.disabled = false
+    accessSubmitButton.textContent = 'Continue'
+  }
+}
+
+async function loadServiceStatus() {
+  try {
+    const response = await fetch(`${POLYSWAP_API_ROOT}/v1/status`, { headers: { Accept: 'application/json' } })
+    if (!response.ok) return
+    const status = await response.json()
+    if (status.paused) setLocalStatus('PolySwap is paused by the operator')
+  } catch {
+    // The catalog fallback and request errors remain the user-facing diagnostics.
+  }
+}
+
 policyButton.addEventListener('click', togglePolicyMenu)
+policyButton.addEventListener('pointerenter', schedulePolicyMenuOpen)
+policyButton.addEventListener('pointerleave', schedulePolicyMenuClose)
+;[policyMenu, effortMenu, speedMenu].forEach(menu => {
+  menu.addEventListener('pointerenter', clearPolicyMenuTimer)
+  menu.addEventListener('pointerleave', schedulePolicyMenuClose)
+})
 modelPolicyRow.addEventListener('click', () => openModelMenu({ focusSearch: true }))
 effortPolicyRow.addEventListener('click', () => openPolicySubmenu(effortMenu, effortPolicyRow))
 speedPolicyRow.addEventListener('click', () => openPolicySubmenu(speedMenu, speedPolicyRow))
@@ -847,7 +1176,52 @@ composer.addEventListener('submit', async event => {
 })
 
 signInButton.addEventListener('click', () => {
-  if (typeof signInDialog.showModal === 'function') signInDialog.showModal()
+  if (accessToken) openHistoryDrawer()
+  else openAccessDialog()
+})
+
+accessDialogClose.addEventListener('click', () => signInDialog.close())
+accessForm.addEventListener('submit', async event => {
+  event.preventDefault()
+  const code = accessCodeInput.value.trim()
+  if (!code) return
+  await exchangeAccess(code)
+})
+
+historyButton.addEventListener('click', openHistoryDrawer)
+historyCloseButton.addEventListener('click', closeHistoryDrawer)
+historyBackdrop.addEventListener('click', closeHistoryDrawer)
+newChatButton.addEventListener('click', createNewThread)
+threadList.addEventListener('click', event => {
+  const remove = event.target.closest('[data-delete-thread]')
+  if (remove) {
+    removeThread(remove.dataset.deleteThread)
+    return
+  }
+  const open = event.target.closest('[data-thread]')
+  if (open) activateThread(open.dataset.thread)
+})
+
+conversation.addEventListener('click', async event => {
+  const copy = event.target.closest('[data-copy-message]')
+  if (copy) {
+    const message = messages[Number(copy.dataset.copyMessage)]
+    if (!message?.text) return
+    await navigator.clipboard.writeText(message.text).catch(() => {})
+    copy.textContent = 'Copied'
+    window.setTimeout(() => { copy.textContent = 'Copy' }, 1200)
+    return
+  }
+  const retry = event.target.closest('[data-retry-message]')
+  if (!retry) return
+  const index = Number(retry.dataset.retryMessage)
+  const prior = messages.slice(0, index).reverse().find(message => message.role === 'user')
+  if (!prior?.text) return
+  prompt.value = prior.text.replace(/\n\nAttached:.*$/s, '')
+  prompt.focus()
+  updateSubmitState()
+  setLocalStatus('Ready to retry')
+  saveState()
 })
 
 homeModel.addEventListener('click', () => openModelMenu())
@@ -863,7 +1237,7 @@ $('#promptExamples').addEventListener('click', event => {
 })
 
 const FOOTER_INFO = {
-  privacy: ['Privacy', 'Your draft and anonymous conversation history stay in this browser. When you send a prompt, PolySwap sends it through the selected model route to generate a response.'],
+  privacy: ['Privacy', 'Your conversation history stays in this browser. Sent prompts and model responses are processed by the selected provider and recorded in PolySwap’s private launch log so the operator can support the alpha and learn which workflows are useful.'],
   terms: ['Terms', 'PolySwap is an early product. Review important outputs before relying on them; model responses can be incomplete or wrong.'],
   pricing: ['Pricing', 'The model picker shows each route\u2019s available usage pricing. Accounts and paid plans are not live yet.'],
   docs: ['Docs', 'Choose the model, effort, and speed. PolySwap translates those choices into reasoning depth, provider routing, and delivery priority while keeping the workspace stable.']
@@ -888,8 +1262,16 @@ fileInput.addEventListener('change', () => {
 async function initialize() {
   restoreState()
   updatePolicyDisplay()
+  updateAccessUI()
   renderOptions()
-  await loadCatalog()
+  const invite = new URL(window.location.href).searchParams.get('invite')
+  if (invite && !accessToken) {
+    await exchangeAccess(invite)
+    const clean = new URL(window.location.href)
+    clean.searchParams.delete('invite')
+    window.history.replaceState({}, '', `${clean.pathname}${clean.search}${clean.hash}`)
+  }
+  await Promise.all([loadCatalog(), loadServiceStatus()])
   updateSubmitState()
 }
 
