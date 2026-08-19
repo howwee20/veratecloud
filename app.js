@@ -92,6 +92,9 @@ const modelButton = $('#modelButton')
 const modelOptions = $('#modelOptions')
 const modelSearch = $('#modelSearch')
 const selectedModelLabel = $('#selectedModelLabel')
+const advancedFilters = $('#advancedFilters')
+const advancedFiltersButton = $('#advancedFiltersButton')
+const resetFiltersButton = $('#resetFiltersButton')
 const providerFilter = $('#providerFilter')
 const contextFilter = $('#contextFilter')
 const modalityFilter = $('#modalityFilter')
@@ -115,6 +118,7 @@ let attachments = []
 let messages = []
 let activeController = null
 let renderFrame = null
+let modelMenuTimer = null
 
 function newId(prefix) {
   const value = window.crypto?.randomUUID?.() || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
@@ -222,6 +226,7 @@ function filteredModels() {
     const matchesFilter = catalogFilter === 'all' ||
       (catalogFilter === 'agent' && model.supportsTools) ||
       (catalogFilter === 'free' && model.isFree) ||
+      (catalogFilter === 'vision' && model.supportsImages) ||
       (catalogFilter === 'favorites' && favorites.includes(model.id)) ||
       (catalogFilter === 'recent' && recentModels.includes(model.id))
     const matchesProvider = providerFilter.value === 'all' || model.providerSlug === providerFilter.value
@@ -290,13 +295,56 @@ function updateSelectedButton() {
   existing.replaceWith(createProviderMark(selectedModel))
 }
 
+function clearModelMenuTimer() {
+  if (!modelMenuTimer) return
+  window.clearTimeout(modelMenuTimer)
+  modelMenuTimer = null
+}
+
+function openModelMenu({ focusSearch = false } = {}) {
+  clearModelMenuTimer()
+  if (modelMenu.hidden) {
+    modelMenu.hidden = false
+    renderOptions()
+  }
+  modelButton.setAttribute('aria-expanded', 'true')
+  if (focusSearch) window.requestAnimationFrame(() => modelSearch.focus())
+}
+
+function closeModelMenu({ returnFocus = false } = {}) {
+  clearModelMenuTimer()
+  modelMenu.hidden = true
+  modelButton.setAttribute('aria-expanded', 'false')
+  if (returnFocus) modelButton.focus()
+}
+
+function scheduleModelMenuOpen(event) {
+  if (event.pointerType && event.pointerType !== 'mouse') return
+  clearModelMenuTimer()
+  modelMenuTimer = window.setTimeout(() => openModelMenu(), 90)
+}
+
+function scheduleModelMenuClose(event) {
+  if (event.pointerType && event.pointerType !== 'mouse') return
+  clearModelMenuTimer()
+  modelMenuTimer = window.setTimeout(() => {
+    const activelyUsingMenu = modelMenu.contains(document.activeElement)
+    if (!modelButton.matches(':hover') && !modelMenu.matches(':hover') && !activelyUsingMenu) closeModelMenu()
+  }, 260)
+}
+
+function updateAdvancedFiltersButton() {
+  const active = providerFilter.value !== 'all' || contextFilter.value !== '0' || modalityFilter.value !== 'all'
+  advancedFiltersButton.classList.toggle('active', active)
+  advancedFiltersButton.setAttribute('aria-label', active ? 'Filters are active' : 'More model filters')
+}
+
 function chooseModel(id, persist = true) {
   selectedModel = allModels().find(model => model.id === id) || AUTO_MODEL
   preferredModelId = selectedModel.id
   recentModels = [selectedModel.id, ...recentModels.filter(modelId => modelId !== selectedModel.id)].slice(0, 12)
   updateSelectedButton()
-  modelMenu.hidden = true
-  modelButton.setAttribute('aria-expanded', 'false')
+  closeModelMenu()
   renderOptions()
   if (persist) saveState()
 }
@@ -568,13 +616,13 @@ async function sendChat(text) {
   }
 }
 
+modelButton.addEventListener('pointerenter', scheduleModelMenuOpen)
+modelButton.addEventListener('pointerleave', scheduleModelMenuClose)
+modelMenu.addEventListener('pointerenter', clearModelMenuTimer)
+modelMenu.addEventListener('pointerleave', scheduleModelMenuClose)
+
 modelButton.addEventListener('click', () => {
-  modelMenu.hidden = !modelMenu.hidden
-  modelButton.setAttribute('aria-expanded', String(!modelMenu.hidden))
-  if (!modelMenu.hidden) {
-    renderOptions()
-    modelSearch.focus()
-  }
+  openModelMenu({ focusSearch: true })
 })
 
 modelOptions.addEventListener('click', event => {
@@ -600,20 +648,33 @@ document.querySelector('.model-filter-bar').addEventListener('click', event => {
   renderOptions()
 })
 
-;[providerFilter, contextFilter, modalityFilter].forEach(filter => filter.addEventListener('change', renderOptions))
+advancedFiltersButton.addEventListener('click', () => {
+  advancedFilters.hidden = !advancedFilters.hidden
+  advancedFiltersButton.setAttribute('aria-expanded', String(!advancedFilters.hidden))
+})
+
+resetFiltersButton.addEventListener('click', () => {
+  providerFilter.value = 'all'
+  contextFilter.value = '0'
+  modalityFilter.value = 'all'
+  updateAdvancedFiltersButton()
+  renderOptions()
+})
+
+;[providerFilter, contextFilter, modalityFilter].forEach(filter => filter.addEventListener('change', () => {
+  updateAdvancedFiltersButton()
+  renderOptions()
+}))
 
 document.addEventListener('pointerdown', event => {
   if (!modelMenu.hidden && !modelMenu.contains(event.target) && !modelButton.contains(event.target)) {
-    modelMenu.hidden = true
-    modelButton.setAttribute('aria-expanded', 'false')
+    closeModelMenu()
   }
 })
 
 document.addEventListener('keydown', event => {
   if (event.key === 'Escape' && !modelMenu.hidden) {
-    modelMenu.hidden = true
-    modelButton.setAttribute('aria-expanded', 'false')
-    modelButton.focus()
+    closeModelMenu({ returnFocus: true })
   }
 })
 
