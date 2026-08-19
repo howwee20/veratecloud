@@ -107,6 +107,9 @@ const attachmentRow = $('#attachmentRow')
 const localState = $('#localState')
 const signInButton = $('#signInButton')
 const signInDialog = $('#signInDialog')
+const infoDialog = $('#infoDialog')
+const infoDialogTitle = $('#infoDialogTitle')
+const infoDialogBody = $('#infoDialogBody')
 const homeModel = $('#homeModel')
 let homeModelMark = $('#homeModelMark')
 const homeModelName = $('#homeModelName')
@@ -767,6 +770,32 @@ signInButton.addEventListener('click', () => {
 })
 
 homeModel.addEventListener('click', () => openModelMenu())
+
+$('#promptExamples').addEventListener('click', event => {
+  const example = event.target.closest('[data-example-prompt]')
+  if (!example) return
+  prompt.value = example.dataset.examplePrompt
+  prompt.focus()
+  updateSubmitState()
+  setLocalStatus('Draft saved in this browser')
+  saveState()
+})
+
+const FOOTER_INFO = {
+  privacy: ['Privacy', 'Your draft and anonymous conversation history stay in this browser. When you send a prompt, PolySwap sends it through the selected model route to generate a response.'],
+  terms: ['Terms', 'PolySwap is an early product. Review important outputs before relying on them; model responses can be incomplete or wrong.'],
+  pricing: ['Pricing', 'The model picker shows each route\u2019s available usage pricing. Accounts and paid plans are not live yet.'],
+  docs: ['Docs', 'Choose Auto for routing, or select a model yourself. Add files with the plus button, describe the work, and send.']
+}
+
+document.querySelector('.site-footer').addEventListener('click', event => {
+  const trigger = event.target.closest('[data-footer-info]')
+  if (!trigger) return
+  const [title, body] = FOOTER_INFO[trigger.dataset.footerInfo]
+  infoDialogTitle.textContent = title
+  infoDialogBody.textContent = body
+  if (typeof infoDialog.showModal === 'function') infoDialog.showModal()
+})
 
 $('#attachButton').addEventListener('click', () => fileInput.click())
 fileInput.addEventListener('change', () => {

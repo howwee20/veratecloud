@@ -9,8 +9,8 @@
   <title>PolySwap</title>
   <link rel="icon" type="image/png" href="assets/polyswap-mark.png?v=2">
   <link rel="apple-touch-icon" href="assets/polyswap-mark.png?v=2">
-  <link rel="stylesheet" href="styles.css?v=product-home-5">
-  <script src="app.js?v=product-home-5" defer></script>
+  <link rel="stylesheet" href="styles.css?v=product-home-6">
+  <script src="app.js?v=product-home-6" defer></script>
 </head>
 <body>
   <header class="site-header" id="top">
@@ -24,11 +24,8 @@
   <main class="product-shell">
     <section class="experience" id="product" aria-label="PolySwap product">
       <div class="home-identity" id="homeIdentity">
-        <div class="home-lockup" aria-label="PolySwap">
-          <img src="assets/polyswap-mark.png?v=2" alt="">
-          <span>PolySwap</span>
-        </div>
         <h1>One workspace for every intelligence.</h1>
+        <p>Use the best model for each task without switching tools.</p>
         <button class="home-model" id="homeModel" type="button" aria-label="Explore live models">
           <span id="homeModelMark" class="home-model-mark auto-mark" aria-hidden="true"><img src="assets/polyswap-mark.png?v=2" alt=""></span>
           <span class="home-model-copy">
@@ -77,7 +74,7 @@
             <div class="model-options" id="modelOptions"></div>
           </div>
 
-          <textarea id="prompt" rows="3" placeholder="Ask anything or describe the work" aria-label="Message PolySwap"></textarea>
+          <textarea id="prompt" rows="3" placeholder="Describe the task and PolySwap will route it" aria-label="Message PolySwap"></textarea>
 
           <div class="attachment-row" id="attachmentRow" hidden></div>
           <div class="composer-foot">
@@ -91,7 +88,21 @@
             </button>
           </div>
         </form>
+
+        <div class="prompt-examples" id="promptExamples" aria-label="Example prompts">
+          <button type="button" data-example-prompt="Summarize this PDF">Summarize this PDF</button>
+          <button type="button" data-example-prompt="Write code">Write code</button>
+          <button type="button" data-example-prompt="Research a company">Research a company</button>
+        </div>
       </div>
+
+      <footer class="site-footer" aria-label="Footer">
+        <button type="button" data-footer-info="privacy">Privacy</button>
+        <button type="button" data-footer-info="terms">Terms</button>
+        <button type="button" data-footer-info="pricing">Pricing</button>
+        <button type="button" data-footer-info="docs">Docs</button>
+        <a href="mailto:hello@polyswap.ai">Contact</a>
+      </footer>
     </section>
   </main>
 
@@ -102,6 +113,15 @@
       <h2>Keep your work</h2>
       <p>Accounts are coming next. For now, you can use PolySwap without signing in and your work stays in this browser.</p>
       <button class="dialog-primary" value="close">Continue anonymously</button>
+    </form>
+  </dialog>
+
+  <dialog class="info-dialog" id="infoDialog" aria-labelledby="infoDialogTitle">
+    <form method="dialog">
+      <button class="dialog-close" value="close" aria-label="Close information dialog">×</button>
+      <h2 id="infoDialogTitle"></h2>
+      <p id="infoDialogBody"></p>
+      <button class="dialog-primary" value="close">Done</button>
     </form>
   </dialog>
 </body>
