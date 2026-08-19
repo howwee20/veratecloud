@@ -72,10 +72,11 @@ const PROVIDERS = {
 const AUTO_MODEL = {
   id: 'openrouter/auto',
   name: 'Auto',
-  provider: 'OpenRouter',
-  providerSlug: 'openrouter',
-  badge: 'A',
-  note: 'Policy route',
+  provider: 'PolySwap',
+  providerSlug: 'polyswap',
+  icon: 'assets/polyswap-mark.png?v=2',
+  badge: 'P',
+  note: 'Chooses the best fit',
   contextLength: 0,
   promptPrice: 0,
   completionPrice: 0,
@@ -91,7 +92,6 @@ const modelButton = $('#modelButton')
 const modelOptions = $('#modelOptions')
 const modelSearch = $('#modelSearch')
 const selectedModelLabel = $('#selectedModelLabel')
-const catalogStats = $('#catalogStats')
 const providerFilter = $('#providerFilter')
 const contextFilter = $('#contextFilter')
 const modalityFilter = $('#modalityFilter')
@@ -207,7 +207,7 @@ function formatContext(value) {
 }
 
 function formatPrice(model) {
-  if (model.isAuto) return 'Policy route'
+  if (model.isAuto) return 'Automatic'
   if (model.isFree) return 'Free'
   const input = model.promptPrice * 1000000
   const output = model.completionPrice * 1000000
@@ -253,7 +253,8 @@ function renderOptions() {
     option.className = 'model-option'
     option.type = 'button'
     option.dataset.model = model.id
-    option.title = model.description
+    option.setAttribute('aria-pressed', String(selectedModel.id === model.id))
+    option.setAttribute('aria-label', `${model.name} by ${model.provider}. ${formatPrice(model)}.`)
     option.appendChild(createProviderMark(model))
 
     const copy = document.createElement('span')
@@ -261,7 +262,9 @@ function renderOptions() {
     const strong = document.createElement('strong')
     strong.textContent = model.name
     const small = document.createElement('small')
-    small.textContent = `${model.provider} · ${formatContext(model.contextLength)}${model.supportsImages ? ' · Vision' : ''}`
+    small.textContent = model.isAuto
+      ? 'PolySwap · Chooses the best model for the request'
+      : `${model.provider} · ${formatContext(model.contextLength)}${model.supportsImages ? ' · Vision' : ''}${model.supportsTools ? ' · Tools' : ''}`
     copy.append(strong, small)
 
     const note = document.createElement('small')
@@ -282,6 +285,7 @@ function renderOptions() {
 
 function updateSelectedButton() {
   selectedModelLabel.textContent = selectedModel.name
+  modelButton.setAttribute('aria-label', `Choose a model. ${selectedModel.name} selected.`)
   const existing = modelButton.querySelector('.provider-mark')
   existing.replaceWith(createProviderMark(selectedModel))
 }
@@ -386,11 +390,6 @@ async function loadCatalog() {
     if (!response.ok) throw new Error(`catalog returned ${response.status}`)
     const payload = await response.json()
     catalog = (Array.isArray(payload.data) ? payload.data : []).map(normalizeModel).filter(model => model.id && model.id !== AUTO_MODEL.id)
-    const agentCount = catalog.filter(model => model.supportsTools).length
-    const freeCount = catalog.filter(model => model.isFree).length
-    const providerCount = new Set(catalog.map(model => model.providerSlug)).size
-    catalogStats.textContent = `${catalog.length} models · ${agentCount} agent · ${freeCount} free`
-    catalogStats.title = `${providerCount} providers in the live PolySwap catalog`
     providerFilter.replaceChildren(new Option('Any provider', 'all'))
     const providers = [...new Map(catalog.map(model => [model.providerSlug, model.provider])).entries()].sort((a, b) => a[1].localeCompare(b[1]))
     providers.forEach(([slug, name]) => providerFilter.appendChild(new Option(name, slug)))
@@ -398,7 +397,6 @@ async function loadCatalog() {
     setLocalStatus('')
   } catch (error) {
     catalog = []
-    catalogStats.textContent = 'Catalog unavailable · Auto still works'
     chooseModel(AUTO_MODEL.id, false)
     setLocalStatus(`Catalog error · ${error.message}`)
   }
@@ -608,6 +606,14 @@ document.addEventListener('pointerdown', event => {
   if (!modelMenu.hidden && !modelMenu.contains(event.target) && !modelButton.contains(event.target)) {
     modelMenu.hidden = true
     modelButton.setAttribute('aria-expanded', 'false')
+  }
+})
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape' && !modelMenu.hidden) {
+    modelMenu.hidden = true
+    modelButton.setAttribute('aria-expanded', 'false')
+    modelButton.focus()
   }
 })
 

@@ -9,8 +9,8 @@
   <title>PolySwap</title>
   <link rel="icon" type="image/png" href="assets/polyswap-mark.png?v=2">
   <link rel="apple-touch-icon" href="assets/polyswap-mark.png?v=2">
-  <link rel="stylesheet" href="styles.css?v=product-home-1">
-  <script src="app.js?v=product-home-1" defer></script>
+  <link rel="stylesheet" href="styles.css?v=product-home-2">
+  <script src="app.js?v=product-home-2" defer></script>
 </head>
 <body>
   <header class="site-header" id="top">
@@ -26,33 +26,31 @@
       <div class="conversation" id="conversation" aria-live="polite"></div>
 
       <div class="composer-wrap" id="system">
-        <p class="composer-thesis">Any model. One workspace.</p>
         <form class="composer" id="composer">
           <div class="policy-bar" aria-label="Task policy">
-            <button class="policy-button primary-policy" id="modelButton" type="button" aria-expanded="false">
-              <span class="provider-mark auto-mark">A</span>
+            <button class="policy-button primary-policy" id="modelButton" type="button" aria-expanded="false" aria-controls="modelMenu" aria-label="Choose a model. Auto selected.">
+              <span class="provider-mark auto-mark"><img src="assets/polyswap-mark.png?v=2" alt=""></span>
               <span id="selectedModelLabel">Auto</span>
               <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
             </button>
           </div>
 
-          <div class="model-menu" id="modelMenu" hidden>
+          <div class="model-menu" id="modelMenu" role="dialog" aria-label="Choose a model" hidden>
             <label class="model-search">
               <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg>
-              <input id="modelSearch" type="search" placeholder="Search hundreds of models" autocomplete="off">
+              <input id="modelSearch" type="search" placeholder="Search models or providers" autocomplete="off">
             </label>
             <div class="model-filter-bar" aria-label="Model filters">
-              <button class="active" data-catalog-filter="all" type="button">All</button>
-              <button data-catalog-filter="agent" type="button">Agent capable</button>
+              <button class="active" data-catalog-filter="all" type="button">All models</button>
+              <button data-catalog-filter="agent" type="button">Agent ready</button>
               <button data-catalog-filter="free" type="button">Free</button>
               <button data-catalog-filter="favorites" type="button">Favorites</button>
               <button data-catalog-filter="recent" type="button">Recent</button>
-              <span id="catalogStats">Loading live catalog…</span>
             </div>
             <div class="model-advanced-filters">
               <label>Provider<select id="providerFilter"><option value="all">Any provider</option></select></label>
-              <label>Context<select id="contextFilter"><option value="0">Any context</option><option value="32768">32K+</option><option value="131072">128K+</option><option value="1000000">1M+</option></select></label>
-              <label>Input<select id="modalityFilter"><option value="all">Text</option><option value="vision">Vision</option></select></label>
+              <label>Context window<select id="contextFilter"><option value="0">Any size</option><option value="32768">32K+</option><option value="131072">128K+</option><option value="1000000">1M+</option></select></label>
+              <label>Input<select id="modalityFilter"><option value="all">Any input</option><option value="vision">Vision</option></select></label>
             </div>
             <div class="model-options" id="modelOptions"></div>
           </div>
