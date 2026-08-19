@@ -86,13 +86,25 @@ const AUTO_MODEL = {
   isAuto: true
 }
 
+const EFFORT_LEVELS = {
+  light: { label: 'Light', reasoning: 'low', budget: 0.08, maxTokens: 2048 },
+  medium: { label: 'Medium', reasoning: 'medium', budget: 0.2, maxTokens: 4096 },
+  high: { label: 'High', reasoning: 'high', budget: 0.4, maxTokens: 8192 },
+  xhigh: { label: 'Extra High', reasoning: 'xhigh', budget: 0.7, maxTokens: 12288 },
+  ultra: { label: 'Ultra', reasoning: 'max', budget: 1, maxTokens: 16384 }
+}
+
+const SPEED_LEVELS = {
+  economy: { label: 'Economy' },
+  standard: { label: 'Standard' },
+  fast: { label: 'Fast' }
+}
+
 const $ = selector => document.querySelector(selector)
 const modelMenu = $('#modelMenu')
-const modelButton = $('#modelButton')
 const modelOptions = $('#modelOptions')
 const modelSearch = $('#modelSearch')
 const modelMenuClose = $('#modelMenuClose')
-const selectedModelLabel = $('#selectedModelLabel')
 const advancedFilters = $('#advancedFilters')
 const advancedFiltersButton = $('#advancedFiltersButton')
 const resetFiltersButton = $('#resetFiltersButton')
@@ -115,10 +127,23 @@ const homeModel = $('#homeModel')
 let homeModelMark = $('#homeModelMark')
 const homeModelName = $('#homeModelName')
 const homeModelMeta = $('#homeModelMeta')
+const policyButton = $('#policyButton')
+const policySummary = $('#policySummary')
+const policyMenu = $('#policyMenu')
+const modelPolicyRow = $('#modelPolicyRow')
+const effortPolicyRow = $('#effortPolicyRow')
+const speedPolicyRow = $('#speedPolicyRow')
+const modelPolicyValue = $('#modelPolicyValue')
+const effortPolicyValue = $('#effortPolicyValue')
+const speedPolicyValue = $('#speedPolicyValue')
+const effortMenu = $('#effortMenu')
+const speedMenu = $('#speedMenu')
 
 let catalog = []
 let selectedModel = AUTO_MODEL
 let preferredModelId = AUTO_MODEL.id
+let selectedEffort = 'medium'
+let selectedSpeed = 'standard'
 let catalogFilter = 'all'
 let favorites = []
 let recentModels = []
@@ -126,7 +151,6 @@ let attachments = []
 let messages = []
 let activeController = null
 let renderFrame = null
-let modelMenuTimer = null
 let homeModelTimer = null
 let homeModelIndex = 0
 let homeModels = []
@@ -172,6 +196,7 @@ function normalizeModel(raw) {
   const rawName = String(raw.name || String(raw.id || '').split('/').pop() || 'Unknown model')
   const name = rawName.includes(':') ? rawName.slice(rawName.indexOf(':') + 1).trim() : rawName
   const supportsTools = parameters.includes('tools') || parameters.includes('tool_choice')
+  const supportsReasoning = Boolean(raw.reasoning) || parameters.includes('reasoning') || parameters.includes('reasoning_effort')
 
   return {
     id: String(raw.id),
@@ -186,6 +211,8 @@ function normalizeModel(raw) {
     promptPrice,
     completionPrice,
     supportsTools,
+    supportsReasoning,
+    supportedEfforts: Array.isArray(raw.reasoning?.supported_efforts) ? raw.reasoning.supported_efforts.map(String) : [],
     supportsImages: modalities.includes('image'),
     isFree,
     isAuto: false
@@ -346,49 +373,66 @@ function renderOptions() {
   modelOptions.appendChild(fragment)
 }
 
-function updateSelectedButton() {
-  selectedModelLabel.textContent = selectedModel.name
-  modelButton.setAttribute('aria-label', `Choose a model. ${selectedModel.name} selected.`)
-  const existing = modelButton.querySelector('.provider-mark')
-  existing.replaceWith(createProviderMark(selectedModel))
+function updatePolicyDisplay() {
+  const effort = EFFORT_LEVELS[selectedEffort]
+  const speed = SPEED_LEVELS[selectedSpeed]
+  policySummary.textContent = `${selectedModel.name} · ${effort.label} · ${speed.label}`
+  policyButton.setAttribute('aria-label', `Model ${selectedModel.name}, ${effort.label} effort, ${speed.label} speed`)
+  modelPolicyValue.textContent = selectedModel.name
+  effortPolicyValue.textContent = effort.label
+  speedPolicyValue.textContent = speed.label
+
+  const existing = policyButton.querySelector('.policy-model-mark')
+  existing?.replaceWith(createProviderMark(selectedModel, 'policy-model-mark'))
+  effortMenu.querySelectorAll('[data-effort]').forEach(option => option.setAttribute('aria-checked', String(option.dataset.effort === selectedEffort)))
+  speedMenu.querySelectorAll('[data-speed]').forEach(option => option.setAttribute('aria-checked', String(option.dataset.speed === selectedSpeed)))
 }
 
-function clearModelMenuTimer() {
-  if (!modelMenuTimer) return
-  window.clearTimeout(modelMenuTimer)
-  modelMenuTimer = null
+function closePolicySubmenus() {
+  effortMenu.hidden = true
+  speedMenu.hidden = true
+  effortPolicyRow.setAttribute('aria-expanded', 'false')
+  speedPolicyRow.setAttribute('aria-expanded', 'false')
+}
+
+function closePolicyMenu({ returnFocus = false } = {}) {
+  closePolicySubmenus()
+  policyMenu.hidden = true
+  policyButton.setAttribute('aria-expanded', 'false')
+  if (returnFocus) policyButton.focus()
+}
+
+function openPolicyMenu() {
+  closeModelMenu()
+  policyMenu.hidden = false
+  policyButton.setAttribute('aria-expanded', 'true')
+}
+
+function togglePolicyMenu() {
+  if (policyMenu.hidden) openPolicyMenu()
+  else closePolicyMenu()
+}
+
+function openPolicySubmenu(menu, trigger) {
+  const willOpen = menu.hidden
+  closePolicySubmenus()
+  if (!willOpen) return
+  menu.hidden = false
+  trigger.setAttribute('aria-expanded', 'true')
 }
 
 function openModelMenu({ focusSearch = false } = {}) {
-  clearModelMenuTimer()
+  closePolicyMenu()
   if (modelMenu.hidden) {
     modelMenu.hidden = false
     renderOptions()
   }
-  modelButton.setAttribute('aria-expanded', 'true')
   if (focusSearch) window.requestAnimationFrame(() => modelSearch.focus())
 }
 
 function closeModelMenu({ returnFocus = false } = {}) {
-  clearModelMenuTimer()
   modelMenu.hidden = true
-  modelButton.setAttribute('aria-expanded', 'false')
-  if (returnFocus) modelButton.focus()
-}
-
-function scheduleModelMenuOpen(event) {
-  if (event.pointerType && event.pointerType !== 'mouse') return
-  clearModelMenuTimer()
-  modelMenuTimer = window.setTimeout(() => openModelMenu(), 90)
-}
-
-function scheduleModelMenuClose(event) {
-  if (event.pointerType && event.pointerType !== 'mouse') return
-  clearModelMenuTimer()
-  modelMenuTimer = window.setTimeout(() => {
-    const activelyUsingMenu = modelMenu.contains(document.activeElement)
-    if (!modelButton.matches(':hover') && !modelMenu.matches(':hover') && !activelyUsingMenu) closeModelMenu()
-  }, 260)
+  if (returnFocus) policyButton.focus()
 }
 
 function updateAdvancedFiltersButton() {
@@ -401,7 +445,7 @@ function chooseModel(id, persist = true) {
   selectedModel = allModels().find(model => model.id === id) || AUTO_MODEL
   preferredModelId = selectedModel.id
   recentModels = [selectedModel.id, ...recentModels.filter(modelId => modelId !== selectedModel.id)].slice(0, 12)
-  updateSelectedButton()
+  updatePolicyDisplay()
   closeModelMenu()
   renderOptions()
   if (persist) saveState()
@@ -417,6 +461,10 @@ function formatUsage(usage, modelId) {
   }
   if (usage?.prompt_tokens || usage?.completion_tokens) parts.push(`${usage.prompt_tokens || 0} in · ${usage.completion_tokens || 0} out`)
   return parts.join(' · ')
+}
+
+function formatPolicy(effort, speed) {
+  return `${EFFORT_LEVELS[effort]?.label || 'Medium'} · ${SPEED_LEVELS[speed]?.label || 'Standard'}`
 }
 
 function renderMessages() {
@@ -460,6 +508,8 @@ function scheduleRender() {
 function saveState() {
   localStorage.setItem(STATE_KEY, JSON.stringify({
     selectedModel: preferredModelId,
+    selectedEffort,
+    selectedSpeed,
     draft: prompt.value,
     favorites,
     recentModels,
@@ -471,6 +521,8 @@ function restoreState() {
   try {
     const state = JSON.parse(localStorage.getItem(STATE_KEY) || '{}')
     preferredModelId = typeof state.selectedModel === 'string' ? state.selectedModel : AUTO_MODEL.id
+    selectedEffort = Object.hasOwn(EFFORT_LEVELS, state.selectedEffort) ? state.selectedEffort : 'medium'
+    selectedSpeed = Object.hasOwn(SPEED_LEVELS, state.selectedSpeed) ? state.selectedSpeed : 'standard'
     prompt.value = typeof state.draft === 'string' ? state.draft : ''
     favorites = Array.isArray(state.favorites) ? state.favorites.filter(value => typeof value === 'string').slice(0, 100) : []
     recentModels = Array.isArray(state.recentModels) ? state.recentModels.filter(value => typeof value === 'string').slice(0, 12) : []
@@ -479,6 +531,8 @@ function restoreState() {
       : []
   } catch {
     preferredModelId = AUTO_MODEL.id
+    selectedEffort = 'medium'
+    selectedSpeed = 'standard'
   }
   renderMessages()
   updateSubmitState()
@@ -566,14 +620,15 @@ function resolveRouteModel() {
 }
 
 function targetDollars() {
-  return 0.2
+  return EFFORT_LEVELS[selectedEffort].budget
 }
 
 function outputTokenTarget(model) {
+  const effort = EFFORT_LEVELS[selectedEffort]
   const routeModel = allModels().find(item => item.id === model)
   const outputPrice = routeModel?.completionPrice || 0
-  if (!outputPrice || targetDollars() === 0) return 2048
-  return Math.max(64, Math.min(8192, Math.floor((targetDollars() * 0.75) / outputPrice)))
+  if (!outputPrice || targetDollars() === 0) return effort.maxTokens
+  return Math.max(1536, Math.min(effort.maxTokens, Math.floor((targetDollars() * 0.75) / outputPrice)))
 }
 
 function contentText(content) {
@@ -600,6 +655,7 @@ async function consumeStream(response, assistant) {
     if (chunk.error) throw new Error(chunk.error.message || 'PolySwap stream error')
     if (chunk.model) assistant.modelId = chunk.model
     if (chunk.usage) assistant.usage = chunk.usage
+    if (chunk.service_tier) assistant.serviceTier = chunk.service_tier
     const text = contentText(chunk.choices?.[0]?.delta?.content)
     if (text) {
       assistant.text += text
@@ -623,7 +679,9 @@ async function sendChat(text) {
   const displaySuffix = attachments.length ? `\n\n${attachments.map(file => `Attached: ${file.name}`).join('\n')}` : ''
   messages.push({ role: 'user', text: text + displaySuffix })
   const routeModel = resolveRouteModel()
-  const assistant = { role: 'assistant', text: '', pending: true, modelId: routeModel, usage: null, meta: 'Streaming response' }
+  const effort = selectedEffort
+  const speed = selectedSpeed
+  const assistant = { role: 'assistant', text: '', pending: true, modelId: routeModel, usage: null, effort, speed, meta: `Working · ${formatPolicy(effort, speed)}` }
   messages.push(assistant)
   prompt.value = ''
   attachments = []
@@ -632,7 +690,7 @@ async function sendChat(text) {
   renderMessages()
   activeController = new AbortController()
   updateSubmitState()
-  setLocalStatus(`Streaming ${routeModel}…`)
+  setLocalStatus(`Working · ${selectedModel.name} · ${formatPolicy(effort, speed)}`)
   try {
     const response = await fetch(`${POLYSWAP_API_ROOT}/v1/chat`, {
       method: 'POST',
@@ -647,24 +705,26 @@ async function sendChat(text) {
         messages: [...previous, { role: 'user', content }],
         stream: true,
         maxTokens: outputTokenTarget(routeModel),
-        budgetTarget: targetDollars()
+        budgetTarget: targetDollars(),
+        effort,
+        speed
       })
     })
     await consumeStream(response, assistant)
     assistant.pending = false
     if (!assistant.text) assistant.text = 'The selected route returned no text.'
-    assistant.meta = formatUsage(assistant.usage, assistant.modelId)
+    assistant.meta = `${formatUsage(assistant.usage, assistant.modelId)} · ${formatPolicy(effort, speed)}`
     setLocalStatus(assistant.usage && Number.isFinite(Number(assistant.usage.cost)) ? `Complete · ${assistant.meta}` : 'Response complete')
   } catch (error) {
     assistant.pending = false
     if (error.name === 'AbortError') {
       if (!assistant.text) assistant.text = 'Stopped.'
-      assistant.meta = `${formatUsage(assistant.usage, assistant.modelId)} · Stopped`
+      assistant.meta = `${formatUsage(assistant.usage, assistant.modelId)} · ${formatPolicy(effort, speed)} · Stopped`
       setLocalStatus('Response stopped')
     } else {
       assistant.error = true
       assistant.text = assistant.text ? `${assistant.text}\n\nConnection ended: ${error.message}` : `Model request failed: ${error.message}`
-      assistant.meta = formatUsage(assistant.usage, assistant.modelId)
+      assistant.meta = `${formatUsage(assistant.usage, assistant.modelId)} · ${formatPolicy(effort, speed)}`
       setLocalStatus('Request failed · see message')
     }
   } finally {
@@ -675,13 +735,27 @@ async function sendChat(text) {
   }
 }
 
-modelButton.addEventListener('pointerenter', scheduleModelMenuOpen)
-modelButton.addEventListener('pointerleave', scheduleModelMenuClose)
-modelMenu.addEventListener('pointerenter', clearModelMenuTimer)
-modelMenu.addEventListener('pointerleave', scheduleModelMenuClose)
+policyButton.addEventListener('click', togglePolicyMenu)
+modelPolicyRow.addEventListener('click', () => openModelMenu({ focusSearch: true }))
+effortPolicyRow.addEventListener('click', () => openPolicySubmenu(effortMenu, effortPolicyRow))
+speedPolicyRow.addEventListener('click', () => openPolicySubmenu(speedMenu, speedPolicyRow))
 
-modelButton.addEventListener('click', () => {
-  openModelMenu({ focusSearch: true })
+effortMenu.addEventListener('click', event => {
+  const option = event.target.closest('[data-effort]')
+  if (!option || !Object.hasOwn(EFFORT_LEVELS, option.dataset.effort)) return
+  selectedEffort = option.dataset.effort
+  updatePolicyDisplay()
+  closePolicySubmenus()
+  saveState()
+})
+
+speedMenu.addEventListener('click', event => {
+  const option = event.target.closest('[data-speed]')
+  if (!option || !Object.hasOwn(SPEED_LEVELS, option.dataset.speed)) return
+  selectedSpeed = option.dataset.speed
+  updatePolicyDisplay()
+  closePolicySubmenus()
+  saveState()
 })
 
 modelMenuClose.addEventListener('click', () => closeModelMenu({ returnFocus: true }))
@@ -728,15 +802,18 @@ resetFiltersButton.addEventListener('click', () => {
 }))
 
 document.addEventListener('pointerdown', event => {
-  if (!modelMenu.hidden && !modelMenu.contains(event.target) && !modelButton.contains(event.target)) {
+  if (!modelMenu.hidden && !modelMenu.contains(event.target) && !homeModel.contains(event.target)) {
     closeModelMenu()
   }
+  const insidePolicy = policyButton.contains(event.target) || policyMenu.contains(event.target) || effortMenu.contains(event.target) || speedMenu.contains(event.target)
+  if (!policyMenu.hidden && !insidePolicy) closePolicyMenu()
 })
 
 document.addEventListener('keydown', event => {
-  if (event.key === 'Escape' && !modelMenu.hidden) {
-    closeModelMenu({ returnFocus: true })
-  }
+  if (event.key !== 'Escape') return
+  if (!modelMenu.hidden) return closeModelMenu({ returnFocus: true })
+  if (!effortMenu.hidden || !speedMenu.hidden) return closePolicySubmenus()
+  if (!policyMenu.hidden) closePolicyMenu({ returnFocus: true })
 })
 
 prompt.addEventListener('input', () => {
@@ -789,7 +866,7 @@ const FOOTER_INFO = {
   privacy: ['Privacy', 'Your draft and anonymous conversation history stay in this browser. When you send a prompt, PolySwap sends it through the selected model route to generate a response.'],
   terms: ['Terms', 'PolySwap is an early product. Review important outputs before relying on them; model responses can be incomplete or wrong.'],
   pricing: ['Pricing', 'The model picker shows each route\u2019s available usage pricing. Accounts and paid plans are not live yet.'],
-  docs: ['Docs', 'Choose Auto for routing, or select a model yourself. Add files with the plus button, describe the work, and send.']
+  docs: ['Docs', 'Choose the model, effort, and speed. PolySwap translates those choices into reasoning depth, provider routing, and delivery priority while keeping the workspace stable.']
 }
 
 document.querySelector('.site-footer').addEventListener('click', event => {
@@ -810,7 +887,7 @@ fileInput.addEventListener('change', () => {
 
 async function initialize() {
   restoreState()
-  updateSelectedButton()
+  updatePolicyDisplay()
   renderOptions()
   await loadCatalog()
   updateSubmitState()

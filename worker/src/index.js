@@ -1,6 +1,45 @@
 const MODEL_CATALOG_URL = 'https://openrouter.ai/api/v1/models?output_modalities=text&sort=most-popular'
 const CHAT_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
+const EFFORT_POLICIES = {
+  light: {
+    reasoning: 'low',
+    maxTokens: 2048,
+    maxBudget: 0.08,
+    instruction: 'Work directly. Use only the reasoning needed for a correct, concise answer.'
+  },
+  medium: {
+    reasoning: 'medium',
+    maxTokens: 4096,
+    maxBudget: 0.2,
+    instruction: 'Use balanced reasoning. Check the important assumptions before answering.'
+  },
+  high: {
+    reasoning: 'high',
+    maxTokens: 8192,
+    maxBudget: 0.4,
+    instruction: 'Reason carefully. Work through the task, inspect likely failure points, and verify the answer before returning it.'
+  },
+  xhigh: {
+    reasoning: 'xhigh',
+    maxTokens: 12288,
+    maxBudget: 0.7,
+    instruction: 'Apply deep effort. Consider alternatives, challenge the first answer, and return the strongest verified result.'
+  },
+  ultra: {
+    reasoning: 'max',
+    maxTokens: 16384,
+    maxBudget: 1,
+    instruction: 'Use maximum useful effort. Explore multiple approaches, resolve contradictions, and verify the final result thoroughly.'
+  }
+}
+
+const SPEED_POLICIES = {
+  economy: { serviceTier: 'flex', provider: { sort: 'price' } },
+  standard: {},
+  fast: { serviceTier: 'fast', provider: { sort: 'throughput' } }
+}
+
 const json = (payload, status = 200, headers = {}) => new Response(JSON.stringify(payload), {
   status,
   headers: { 'Content-Type': 'application/json; charset=utf-8', ...headers }
@@ -39,10 +78,10 @@ function validateMessages(messages) {
     (typeof message.content === 'string' || Array.isArray(message.content)))
 }
 
-async function reserveBudget(env, body, id) {
+async function reserveBudget(env, body, id, effortPolicy) {
   const sharedBudget = Math.max(0, Number(env.SHARED_BUDGET_USD || 10))
   const perRequestMaximum = Math.max(0.01, Number(env.MAX_REQUEST_BUDGET_USD || 1))
-  const requested = Math.min(perRequestMaximum, Math.max(0.01, Number(body.budgetTarget || 0.2)))
+  const requested = Math.min(perRequestMaximum, effortPolicy.maxBudget, Math.max(0.01, Number(body.budgetTarget || effortPolicy.maxBudget)))
   const reservation = await env.DB.prepare('UPDATE budget SET reserved_usd = reserved_usd + ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND spent_usd + reserved_usd + ? <= ?')
     .bind(requested, 'shared', requested, sharedBudget).run()
   if (!reservation.meta?.changes) {
@@ -128,14 +167,34 @@ async function handleChat(request, env, ctx, cors) {
   if (typeof body.model !== 'string' || body.model.length > 160 || !validateMessages(body.messages)) {
     return json({ error: { message: 'The model or conversation payload is invalid.' } }, 400, cors)
   }
+  const effort = Object.hasOwn(EFFORT_POLICIES, body.effort) ? body.effort : 'medium'
+  const speed = Object.hasOwn(SPEED_POLICIES, body.speed) ? body.speed : 'standard'
+  const effortPolicy = EFFORT_POLICIES[effort]
+  const speedPolicy = SPEED_POLICIES[speed]
 
   const id = requestId()
   let reserved = 0
   try {
-    reserved = await reserveBudget(env, body, id)
+    reserved = await reserveBudget(env, body, id, effortPolicy)
   } catch (error) {
     return json({ error: { message: error.message } }, 402, cors)
   }
+
+  const upstreamBody = {
+    model: body.model,
+    messages: [
+      { role: 'system', content: `PolySwap effort: ${effort}. ${effortPolicy.instruction}` },
+      ...body.messages
+    ],
+    stream: true,
+    max_tokens: Math.max(1536, Math.min(effortPolicy.maxTokens, Number(body.maxTokens || effortPolicy.maxTokens))),
+    reasoning: { effort: effortPolicy.reasoning, exclude: true },
+    usage: { include: true },
+    user: body.sessionId,
+    session_id: body.threadId
+  }
+  if (speedPolicy.serviceTier) upstreamBody.service_tier = speedPolicy.serviceTier
+  if (speedPolicy.provider) upstreamBody.provider = speedPolicy.provider
 
   const upstream = await fetch(CHAT_URL, {
     method: 'POST',
@@ -145,15 +204,7 @@ async function handleChat(request, env, ctx, cors) {
       'HTTP-Referer': 'https://polyswap.ai',
       'X-Title': 'PolySwap'
     },
-    body: JSON.stringify({
-      model: body.model,
-      messages: body.messages,
-      stream: true,
-      max_tokens: Math.max(32, Math.min(8192, Number(body.maxTokens || 2048))),
-      usage: { include: true },
-      user: body.sessionId,
-      session_id: body.threadId
-    })
+    body: JSON.stringify(upstreamBody)
   }).catch(error => ({ ok: false, status: 502, error }))
 
   if (!upstream.ok || !upstream.body) {
