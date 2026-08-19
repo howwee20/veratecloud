@@ -474,7 +474,7 @@ async function loadCatalog() {
     const providers = [...new Map(catalog.map(model => [model.providerSlug, model.provider])).entries()].sort((a, b) => a[1].localeCompare(b[1]))
     providers.forEach(([slug, name]) => providerFilter.appendChild(new Option(name, slug)))
     chooseModel(preferredModelId, false)
-    setLocalStatus(`${catalog.length} live models ready`)
+    setLocalStatus('')
   } catch (error) {
     catalog = []
     catalogStats.textContent = 'Catalog unavailable · Auto still works'
