@@ -91,6 +91,7 @@ const modelMenu = $('#modelMenu')
 const modelButton = $('#modelButton')
 const modelOptions = $('#modelOptions')
 const modelSearch = $('#modelSearch')
+const modelMenuClose = $('#modelMenuClose')
 const selectedModelLabel = $('#selectedModelLabel')
 const advancedFilters = $('#advancedFilters')
 const advancedFiltersButton = $('#advancedFiltersButton')
@@ -329,6 +330,7 @@ function renderOptions() {
     copy.append(strong, small)
 
     const note = document.createElement('small')
+    note.className = `model-option-price${model.isFree ? ' free' : ''}`
     note.textContent = formatPrice(model)
     option.append(copy, note)
 
@@ -681,6 +683,8 @@ modelMenu.addEventListener('pointerleave', scheduleModelMenuClose)
 modelButton.addEventListener('click', () => {
   openModelMenu({ focusSearch: true })
 })
+
+modelMenuClose.addEventListener('click', () => closeModelMenu({ returnFocus: true }))
 
 modelOptions.addEventListener('click', event => {
   const favorite = event.target.closest('[data-favorite]')
