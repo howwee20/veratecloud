@@ -1,15 +1,18 @@
-# Verate
+# Polyswap
 
-Verate turns uncertain machine intelligence into bounded, purchasable, verified work.
+Polyswap is the agentic computer for every intelligence: one durable working
+context with interchangeable models and harnesses.
 
-This repository hosts the public GitHub Pages download site and versioned developer-preview releases for Verate.
+This repository contains the static GitHub Pages site for `polyswap.ai`. The
+working local alpha lives separately in `outputs/verate-app` while directory
+names are migrated. There is no public Polyswap desktop download yet, and the
+site does not claim otherwise.
 
-## Current release
+## Current alpha boundary
 
-- macOS on Apple Silicon
-- Code-OSS editor foundation
-- Verate economics controls, quote authorization, receipts, and proof-gated completion
-- Codex CLI runtime adapter
-- OpenCode/OpenRouter adapter path (configuration required)
-
-This is a developer preview. It is not Apple-notarized and should not yet be treated as a production release.
+- OpenRouter provides the live cloud model catalog and BYOK billing.
+- OpenCode `1.18.11` is the pinned, replaceable coding harness.
+- Polyswap owns task state, model policy, hard-cap authorization, metering,
+  evidence, and proof-gated completion.
+- Hosted accounts, Polyswap-owned billing, signing, notarization, and a public
+  desktop release remain production work.
