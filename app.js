@@ -246,7 +246,7 @@ function rotateHomeModel() {
     homeModelIndex = (homeModelIndex + 1) % homeModels.length
     paintHomeModel(homeModels[homeModelIndex])
     homeModel.classList.remove('is-switching')
-  }, 210)
+  }, 170)
 }
 
 function startHomeModelRotation() {
@@ -256,7 +256,7 @@ function startHomeModelRotation() {
   if (!homeModels.length) return
   paintHomeModel(homeModels[0])
   if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && homeModels.length > 1) {
-    homeModelTimer = window.setInterval(rotateHomeModel, 4400)
+    homeModelTimer = window.setInterval(rotateHomeModel, 1900)
   }
 }
 

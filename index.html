@@ -9,13 +9,20 @@
   <title>PolySwap</title>
   <link rel="icon" type="image/png" href="assets/polyswap-mark.png?v=2">
   <link rel="apple-touch-icon" href="assets/polyswap-mark.png?v=2">
-  <link rel="stylesheet" href="styles.css?v=product-home-7">
-  <script src="app.js?v=product-home-6" defer></script>
+  <link rel="stylesheet" href="styles.css?v=product-home-8">
+  <script src="app.js?v=product-home-7" defer></script>
 </head>
 <body>
   <header class="site-header" id="top">
     <a class="brand" href="#top" aria-label="PolySwap home">
-      <img src="assets/polyswap-mark.png?v=2" alt="">
+      <span class="brand-mark" aria-hidden="true">
+        <i class="brand-orb brand-orb-pink"></i>
+        <i class="brand-orb brand-orb-orange"></i>
+        <i class="brand-orb brand-orb-yellow"></i>
+        <i class="brand-orb brand-orb-green"></i>
+        <i class="brand-orb brand-orb-blue"></i>
+        <i class="brand-orb brand-orb-purple"></i>
+      </span>
       <span>PolySwap</span>
     </a>
     <button class="signin-button" id="signInButton" type="button">Sign in</button>
@@ -25,7 +32,7 @@
     <section class="experience" id="product" aria-label="PolySwap product">
       <div class="home-identity" id="homeIdentity">
         <h1>One workspace for every intelligence.</h1>
-        <p>Use the best model for each task without switching tools.</p>
+        <p>Describe the task. PolySwap picks the right model.</p>
         <button class="home-model" id="homeModel" type="button" aria-label="Explore live models">
           <span id="homeModelMark" class="home-model-mark auto-mark" aria-hidden="true"><img src="assets/polyswap-mark.png?v=2" alt=""></span>
           <span class="home-model-copy">
@@ -74,7 +81,7 @@
             <div class="model-options" id="modelOptions"></div>
           </div>
 
-          <textarea id="prompt" rows="3" placeholder="Describe the task and PolySwap will route it" aria-label="Message PolySwap"></textarea>
+          <textarea id="prompt" rows="3" placeholder="Ask anything or describe the work" aria-label="Message PolySwap"></textarea>
 
           <div class="attachment-row" id="attachmentRow" hidden></div>
           <div class="composer-foot">
