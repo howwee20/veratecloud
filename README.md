@@ -18,7 +18,7 @@ The public Chat path now includes:
 ## Current alpha boundary
 
 - Chat inference is real and runs directly from the browser through the user's
-  OpenRouter connection.
+  secure model authorization.
 - The site labels the budget as a target because a browser-only chat cannot
   enforce a transactional hard cap before final usage arrives.
 - Agent mode is deliberately gated. It does not claim execution until isolated

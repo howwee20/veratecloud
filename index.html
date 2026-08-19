@@ -6,16 +6,14 @@
   <meta name="theme-color" content="#ffffff">
   <meta name="description" content="PolySwap — one workspace for every intelligence.">
   <title>PolySwap</title>
-  <link rel="stylesheet" href="styles.css?v=live-openrouter-1">
-  <script src="app.js?v=live-openrouter-1" defer></script>
+  <link rel="stylesheet" href="styles.css?v=live-openrouter-2">
+  <script src="app.js?v=live-openrouter-2" defer></script>
 </head>
 <body>
   <header class="site-header" id="top">
     <a class="brand" href="#top" aria-label="PolySwap home">PolySwap</a>
     <nav aria-label="Primary">
       <a href="#product">Product</a>
-      <a href="#system">System</a>
-      <button class="connection-button" id="connectionButton" type="button">Connect OpenRouter</button>
       <a class="github-link" href="https://github.com/howwee20/veratecloud">GitHub</a>
     </nav>
   </header>
@@ -35,11 +33,6 @@
       <div class="composer-wrap" id="system">
         <form class="composer" id="composer">
           <div class="policy-bar" aria-label="Task policy">
-            <button class="policy-button mode-policy" id="modeButton" type="button" aria-pressed="false" title="Switch between chat and hosted agent work">
-              <span class="mode-dot"></span>
-              <span id="modeLabel">Chat</span>
-            </button>
-            <span class="policy-separator">·</span>
             <button class="policy-button primary-policy" id="modelButton" type="button" aria-expanded="false">
               <span class="provider-mark auto-mark">A</span>
               <span id="selectedModelLabel">Auto</span>
@@ -93,9 +86,6 @@
             <input id="fileInput" type="file" accept="image/*,.txt,.md,.json,.csv,.js,.ts,.tsx,.jsx,.py,.html,.css,.xml,.yaml,.yml" multiple hidden>
             <button class="icon-button" id="attachButton" type="button" aria-label="Add files" title="Add files">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-            </button>
-            <button class="access-button" id="connectionInline" type="button">
-              <span></span><b id="connectionInlineLabel">Connect OpenRouter</b>
             </button>
             <span class="local-state" id="localState">Loading live model catalog…</span>
             <button class="submit-button" id="submitButton" type="submit" disabled aria-label="Send message">

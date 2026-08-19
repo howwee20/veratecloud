@@ -5,24 +5,69 @@ const STATE_KEY = 'polyswap-public-v2'
 const OPENROUTER_KEY_STORAGE = 'polyswap-openrouter-key-v1'
 const PKCE_STORAGE = 'polyswap-openrouter-pkce-v1'
 
+const LOBE_ICON_ROOT = 'https://cdn.jsdelivr.net/npm/@lobehub/icons-static-svg@1.94.0/icons'
+const lobeIcon = filename => `${LOBE_ICON_ROOT}/${filename}`
+const favicon = domain => `https://t0.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`
+const OPENROUTER_MARK = lobeIcon('openrouter-color.svg')
+
 const PROVIDERS = {
-  openrouter: { name: 'OpenRouter' },
+  openrouter: { name: 'OpenRouter', icon: OPENROUTER_MARK },
+  ai21: { name: 'AI21 Labs', icon: lobeIcon('ai21-brand-color.svg') },
+  'aion-labs': { name: 'Aion Labs', icon: lobeIcon('aionlabs-color.svg') },
+  allenai: { name: 'Allen Institute for AI', icon: lobeIcon('ai2-color.svg') },
+  amazon: { name: 'Amazon', icon: lobeIcon('aws-color.svg') },
+  'anthracite-org': { name: 'Anthracite', icon: 'https://cdn-avatars.huggingface.co/v1/production/uploads/658a46cbfb9c2bdfae75b3a6/HDYkduzAwQRNHuRl5eYdP.png' },
   openai: { name: 'OpenAI', icon: 'assets/providers/openai.svg' },
   anthropic: { name: 'Anthropic', icon: 'assets/providers/anthropic.svg' },
+  'arcee-ai': { name: 'Arcee AI', icon: lobeIcon('arcee-color.svg') },
+  baidu: { name: 'Baidu', icon: lobeIcon('baidu-color.svg') },
+  bytedance: { name: 'ByteDance', icon: lobeIcon('bytedance-color.svg') },
+  'bytedance-seed': { name: 'ByteDance Seed', icon: lobeIcon('bytedance-color.svg') },
+  cognitivecomputations: { name: 'Cognitive Computations', icon: 'https://www.gravatar.com/avatar/506bfc052d479937a4f87a78e227de47?d=retro&size=128' },
+  cohere: { name: 'Cohere', icon: lobeIcon('cohere-color.svg') },
+  deepcogito: { name: 'Deep Cogito', icon: lobeIcon('deepcogito-color.svg') },
+  deepseek: { name: 'DeepSeek', icon: 'assets/providers/deepseek.svg' },
+  'dots-studio': { name: 'Dots Studio', icon: 'https://openrouter.ai/images/icons/DotsStudio.png' },
   google: { name: 'Google', icon: 'assets/providers/gemini.svg' },
   'google-ai-studio': { name: 'Google', icon: 'assets/providers/gemini.svg' },
+  gryphe: { name: 'Gryphe', icon: 'https://cdn-avatars.huggingface.co/v1/production/uploads/64ae4107ad6218d51a2a7d0c/3dcor68aYBKEcTlOUHJpK.png' },
+  'ibm-granite': { name: 'IBM Granite', icon: lobeIcon('ibm.svg') },
+  inception: { name: 'Inception', icon: lobeIcon('inception.svg') },
+  inclusionai: { name: 'InclusionAI', icon: 'https://cdn-avatars.huggingface.co/v1/production/uploads/662e1f9da266499277937d33/fyKuazRifqiaIO34xrhhm.jpeg' },
+  kwaipilot: { name: 'KwaiPilot', icon: lobeIcon('kwaipilot-color.svg') },
+  liquid: { name: 'Liquid AI', icon: lobeIcon('liquid.svg') },
+  mancer: { name: 'Mancer', icon: favicon('mancer.tech') },
+  meituan: { name: 'Meituan', icon: 'https://cdn-avatars.huggingface.co/v1/production/uploads/61ac8f8a00d01045fca0ad2f/4TJKRXMsRyZsyi4H3rWsh.jpeg' },
   'meta-llama': { name: 'Meta', icon: 'assets/providers/meta.svg' },
   meta: { name: 'Meta', icon: 'assets/providers/meta.svg' },
+  microsoft: { name: 'Microsoft', icon: lobeIcon('microsoft-color.svg') },
+  minimax: { name: 'MiniMax', icon: lobeIcon('minimax-color.svg') },
   mistralai: { name: 'Mistral AI', icon: 'assets/providers/mistral.svg' },
   mistral: { name: 'Mistral AI', icon: 'assets/providers/mistral.svg' },
   moonshotai: { name: 'Moonshot AI', icon: 'assets/providers/kimi.svg' },
   moonshot: { name: 'Moonshot AI', icon: 'assets/providers/kimi.svg' },
-  qwen: { name: 'Qwen', icon: 'assets/providers/qwen.svg' },
-  deepseek: { name: 'DeepSeek', icon: 'assets/providers/deepseek.svg' },
+  morph: { name: 'Morph', icon: lobeIcon('morph-color.svg') },
+  'nex-agi': { name: 'Nex AGI', icon: 'https://cdn-avatars.huggingface.co/v1/production/uploads/65435cad429b80b14922ab8d/a_O9jT_daz_NXTfxtcw6S.png' },
+  nousresearch: { name: 'Nous Research', icon: lobeIcon('nousresearch.svg') },
   nvidia: { name: 'NVIDIA', icon: 'assets/providers/nvidia.svg' },
-  'x-ai': { name: 'xAI' },
-  cohere: { name: 'Cohere' },
-  perplexity: { name: 'Perplexity' }
+  perceptron: { name: 'Perceptron', icon: favicon('perceptron.inc') },
+  perplexity: { name: 'Perplexity', icon: lobeIcon('perplexity-color.svg') },
+  poolside: { name: 'Poolside', icon: lobeIcon('poolside-color.svg') },
+  qwen: { name: 'Qwen', icon: 'assets/providers/qwen.svg' },
+  rekaai: { name: 'Reka AI', icon: 'https://cdn-avatars.huggingface.co/v1/production/uploads/67cfd5c7a9e354203d6904ec/ArJ3mrKcYxCEV23zbk7E8.jpeg' },
+  relace: { name: 'Relace', icon: lobeIcon('relace.svg') },
+  sakana: { name: 'Sakana AI', icon: favicon('sakana.ai') },
+  sao10k: { name: 'Sao10K', icon: 'https://cdn-avatars.huggingface.co/v1/production/uploads/64be6a5376a6e2efccc638c1/gvRRLHsicTCxpURJeQDv3.jpeg' },
+  stepfun: { name: 'StepFun', icon: lobeIcon('stepfun-color.svg') },
+  tencent: { name: 'Tencent', icon: lobeIcon('tencent-color.svg') },
+  thedrummer: { name: 'TheDrummer', icon: 'https://cdn-avatars.huggingface.co/v1/production/uploads/65f2fd1c25b848bd061b5c2e/9KR0rcumxWqnaXq3hPNKb.webp' },
+  thinkingmachines: { name: 'Thinking Machines', icon: 'https://cdn-avatars.huggingface.co/v1/production/uploads/680a76de1b8d08640089fab0/r60-JyW_pv4llgjEyDYj9.png' },
+  undi95: { name: 'Undi95', icon: 'https://cdn-avatars.huggingface.co/v1/production/uploads/63ab1241ad514ca8d1430003/9UwuBl5D-GuIJKIOVHm3Z.png' },
+  upstage: { name: 'Upstage', icon: lobeIcon('upstage-color.svg') },
+  writer: { name: 'Writer', icon: favicon('writer.com') },
+  'x-ai': { name: 'xAI', icon: lobeIcon('xai.svg') },
+  xiaomi: { name: 'Xiaomi', icon: lobeIcon('xiaomimimo.svg') },
+  'z-ai': { name: 'Z.ai', icon: lobeIcon('zai.svg') }
 }
 
 const AUTO_MODEL = {
@@ -59,12 +104,7 @@ const conversation = $('#conversation')
 const composer = $('#composer')
 const fileInput = $('#fileInput')
 const attachmentRow = $('#attachmentRow')
-const connectionButton = $('#connectionButton')
-const connectionInline = $('#connectionInline')
-const connectionInlineLabel = $('#connectionInlineLabel')
 const localState = $('#localState')
-const modeButton = $('#modeButton')
-const modeLabel = $('#modeLabel')
 
 let catalog = []
 let selectedModel = AUTO_MODEL
@@ -74,7 +114,6 @@ let favorites = []
 let recentModels = []
 let attachments = []
 let messages = []
-let mode = 'chat'
 let openRouterKey = localStorage.getItem(OPENROUTER_KEY_STORAGE) || ''
 let activeController = null
 let renderFrame = null
@@ -84,8 +123,8 @@ function titleCase(value) {
 }
 
 function providerFor(id) {
-  const slug = String(id || '').split('/')[0].toLowerCase()
-  return { slug, ...(PROVIDERS[slug] || { name: titleCase(slug || 'Unknown') }) }
+  const slug = String(id || '').split('/')[0].toLowerCase().replace(/^~/, '')
+  return { slug, ...(PROVIDERS[slug] || { name: titleCase(slug || 'Unknown'), icon: OPENROUTER_MARK }) }
 }
 
 function safeNumber(value) {
@@ -111,7 +150,7 @@ function normalizeModel(raw) {
     providerSlug: provider.slug,
     icon: provider.icon,
     badge: (provider.name || '?').charAt(0).toUpperCase(),
-    note: `${isFree ? 'Free · ' : ''}${supportsTools ? 'Agent' : 'Chat'}`,
+    note: `${isFree ? 'Free · ' : ''}${supportsTools ? 'Agent' : 'Model'}`,
     description: String(raw.description || ''),
     contextLength: safeNumber(raw.context_length),
     promptPrice,
@@ -127,12 +166,6 @@ function allModels() {
   return [AUTO_MODEL, ...catalog]
 }
 
-function hashColor(value) {
-  let hash = 0
-  for (const character of value) hash = ((hash << 5) - hash + character.charCodeAt(0)) | 0
-  return `hsl(${Math.abs(hash) % 360} 58% 49%)`
-}
-
 function createProviderMark(model, className = 'provider-mark') {
   const mark = document.createElement('span')
   mark.className = `${className}${model.isAuto ? ' auto-mark' : ''}`
@@ -141,14 +174,13 @@ function createProviderMark(model, className = 'provider-mark') {
     const image = document.createElement('img')
     image.src = model.icon
     image.alt = ''
+    image.addEventListener('error', () => {
+      if (image.src === OPENROUTER_MARK) return
+      image.src = OPENROUTER_MARK
+    }, { once: true })
     mark.appendChild(image)
   } else {
     mark.textContent = model.badge || '?'
-    if (!model.isAuto) {
-      mark.style.background = hashColor(model.providerSlug)
-      mark.style.borderColor = 'transparent'
-      mark.style.color = '#fff'
-    }
   }
   return mark
 }
@@ -340,7 +372,6 @@ function scheduleRender() {
 function saveState() {
   localStorage.setItem(STATE_KEY, JSON.stringify({
     selectedModel: preferredModelId,
-    mode,
     draft: prompt.value,
     economy: $('#economyLabel').textContent,
     cap: $('#capLabel').textContent,
@@ -356,7 +387,6 @@ function restoreState() {
   try {
     const state = JSON.parse(localStorage.getItem(STATE_KEY) || '{}')
     preferredModelId = typeof state.selectedModel === 'string' ? state.selectedModel : AUTO_MODEL.id
-    mode = state.mode === 'agent' ? 'agent' : 'chat'
     prompt.value = typeof state.draft === 'string' ? state.draft : ''
     if (['Economy', 'Free', 'Balanced', 'Frontier'].includes(state.economy)) $('#economyLabel').textContent = state.economy
     if (/^\$[0-9.]+ target$/.test(state.cap || '')) $('#capLabel').textContent = state.cap
@@ -370,23 +400,12 @@ function restoreState() {
   } catch {
     preferredModelId = AUTO_MODEL.id
   }
-  updateModeUi()
   renderMessages()
   updateSubmitState()
 }
 
 function setLocalStatus(text) {
   localState.textContent = text
-}
-
-function updateConnectionUi() {
-  const connected = Boolean(openRouterKey)
-  connectionButton.classList.toggle('connected', connected)
-  connectionInline.classList.toggle('connected', connected)
-  connectionButton.textContent = connected ? 'OpenRouter connected' : 'Connect OpenRouter'
-  connectionInlineLabel.textContent = connected ? 'Connected' : 'Connect OpenRouter'
-  connectionButton.title = connected ? 'Disconnect this browser from OpenRouter' : 'Connect with OpenRouter OAuth'
-  connectionInline.title = connectionButton.title
 }
 
 function base64Url(bytes) {
@@ -415,13 +434,13 @@ async function completeOAuthIfPresent() {
   const oauthError = params.get('error_description') || params.get('error')
   if (oauthError) {
     history.replaceState({}, '', `${location.pathname}#product`)
-    messages.push({ role: 'assistant', text: `OpenRouter connection failed: ${oauthError}`, error: true })
+    messages.push({ role: 'assistant', text: `Model connection failed: ${oauthError}`, error: true })
     renderMessages()
     return
   }
   const code = params.get('code')
   if (!code) return
-  setLocalStatus('Completing OpenRouter connection…')
+  setLocalStatus('Completing secure model connection…')
   const verifier = sessionStorage.getItem(PKCE_STORAGE)
   if (!verifier) throw new Error('The secure connection request expired. Please connect again.')
   const response = await fetch(OPENROUTER_KEY_URL, {
@@ -430,30 +449,12 @@ async function completeOAuthIfPresent() {
     body: JSON.stringify({ code, code_verifier: verifier, code_challenge_method: 'S256' })
   })
   const payload = await response.json().catch(() => ({}))
-  if (!response.ok || !payload.key) throw new Error(payload.error?.message || payload.message || 'OpenRouter did not return a key.')
+  if (!response.ok || !payload.key) throw new Error(payload.error?.message || payload.message || 'The provider did not return a key.')
   openRouterKey = payload.key
   localStorage.setItem(OPENROUTER_KEY_STORAGE, openRouterKey)
   sessionStorage.removeItem(PKCE_STORAGE)
   history.replaceState({}, '', `${location.pathname}#product`)
-  updateConnectionUi()
-  setLocalStatus('OpenRouter connected · key stays in this browser')
-}
-
-async function connectionAction() {
-  if (openRouterKey) {
-    if (!window.confirm('Disconnect OpenRouter from this browser?')) return
-    localStorage.removeItem(OPENROUTER_KEY_STORAGE)
-    openRouterKey = ''
-    updateConnectionUi()
-    setLocalStatus('OpenRouter disconnected')
-    return
-  }
-  try {
-    await startOAuth()
-  } catch (error) {
-    messages.push({ role: 'assistant', text: `Could not start OpenRouter connection: ${error.message}`, error: true })
-    renderMessages()
-  }
+  setLocalStatus('Ready')
 }
 
 async function loadCatalog() {
@@ -473,7 +474,7 @@ async function loadCatalog() {
     const providers = [...new Map(catalog.map(model => [model.providerSlug, model.provider])).entries()].sort((a, b) => a[1].localeCompare(b[1]))
     providers.forEach(([slug, name]) => providerFilter.appendChild(new Option(name, slug)))
     chooseModel(preferredModelId, false)
-    setLocalStatus(openRouterKey ? `${catalog.length} live models ready` : `${catalog.length} live models · connect to chat`)
+    setLocalStatus(`${catalog.length} live models ready`)
   } catch (error) {
     catalog = []
     catalogStats.textContent = 'Catalog unavailable · Auto still works'
@@ -481,14 +482,6 @@ async function loadCatalog() {
     chooseModel(AUTO_MODEL.id, false)
     setLocalStatus(`Catalog error · ${error.message}`)
   }
-}
-
-function updateModeUi() {
-  const agent = mode === 'agent'
-  modeButton.setAttribute('aria-pressed', String(agent))
-  modeLabel.textContent = agent ? 'Agent' : 'Chat'
-  prompt.placeholder = agent ? 'Describe the work for an agent' : 'Ask anything or describe the work'
-  prompt.setAttribute('aria-label', agent ? 'Describe agent work' : 'Message PolySwap')
 }
 
 function updateSubmitState() {
@@ -506,7 +499,7 @@ function cycle(button, values, labelSelector, pairedValues) {
     const next = (current + 1) % values.length
     label.textContent = values[next]
     if (pairedValues) $('#capLabel').textContent = pairedValues[next]
-    setLocalStatus('Chat policy updated')
+    setLocalStatus('Policy updated')
     saveState()
   })
 }
@@ -619,7 +612,7 @@ async function sendChat(text) {
   const displaySuffix = attachments.length ? `\n\n${attachments.map(file => `Attached: ${file.name}`).join('\n')}` : ''
   messages.push({ role: 'user', text: text + displaySuffix })
   const routeModel = resolveRouteModel()
-  const assistant = { role: 'assistant', text: '', pending: true, modelId: routeModel, usage: null, meta: 'Streaming from OpenRouter' }
+  const assistant = { role: 'assistant', text: '', pending: true, modelId: routeModel, usage: null, meta: 'Streaming response' }
   messages.push(assistant)
   prompt.value = ''
   attachments = []
@@ -654,7 +647,7 @@ async function sendChat(text) {
       setLocalStatus('Response stopped')
     } else {
       assistant.error = true
-      assistant.text = assistant.text ? `${assistant.text}\n\nConnection ended: ${error.message}` : `OpenRouter request failed: ${error.message}`
+      assistant.text = assistant.text ? `${assistant.text}\n\nConnection ended: ${error.message}` : `Model request failed: ${error.message}`
       assistant.meta = formatUsage(assistant.usage, assistant.modelId)
       setLocalStatus('Request failed · see message')
     }
@@ -717,16 +710,9 @@ cycle($('#capButton'), ['$0.20 target', '$0.50 target', '$1.00 target', '$5.00 t
 cycle($('#speedButton'), ['Flexible', 'Balanced', 'Fast'], '#speedLabel')
 cycle($('#proofButton'), ['Standard', 'High', 'Maximum'], '#proofLabel')
 
-modeButton.addEventListener('click', () => {
-  mode = mode === 'chat' ? 'agent' : 'chat'
-  updateModeUi()
-  setLocalStatus(mode === 'agent' ? 'Agent preview · hosted workers are not connected yet' : 'Chat mode · live OpenRouter inference')
-  saveState()
-})
-
 prompt.addEventListener('input', () => {
   updateSubmitState()
-  setLocalStatus(prompt.value.trim() ? 'Draft saved in this browser' : (openRouterKey ? 'Ready' : 'Connect OpenRouter to chat'))
+  setLocalStatus(prompt.value.trim() ? 'Draft saved in this browser' : 'Ready')
   saveState()
 })
 
@@ -746,23 +732,11 @@ composer.addEventListener('submit', async event => {
   const text = prompt.value.trim()
   if (!text) return
   if (!openRouterKey) {
-    setLocalStatus('Connect OpenRouter to send this message')
+    setLocalStatus('Opening secure model connection…')
     try { await startOAuth() } catch (error) {
-      messages.push({ role: 'assistant', text: `Could not start OpenRouter connection: ${error.message}`, error: true })
+      messages.push({ role: 'assistant', text: `Could not start the secure connection: ${error.message}`, error: true })
       renderMessages()
     }
-    return
-  }
-  if (mode === 'agent') {
-    messages.push(
-      { role: 'user', text },
-      { role: 'assistant', text: 'Hosted Agent mode is not connected yet. Switch to Chat for real model responses now. Agent execution requires an isolated worker, project storage, and a durable run queue; PolySwap will not pretend that browser-only code can safely execute your repository.', error: true }
-    )
-    prompt.value = ''
-    updateSubmitState()
-    renderMessages()
-    saveState()
-    setLocalStatus('Agent mode is waiting for hosted workers')
     return
   }
   try {
@@ -781,12 +755,8 @@ fileInput.addEventListener('change', () => {
   setLocalStatus(attachments.length ? `${attachments.length} attachment${attachments.length === 1 ? '' : 's'} ready` : 'No attachments selected')
 })
 
-connectionButton.addEventListener('click', connectionAction)
-connectionInline.addEventListener('click', connectionAction)
-
 async function initialize() {
   restoreState()
-  updateConnectionUi()
   updateSelectedButton()
   renderTrack()
   renderOptions()
@@ -794,12 +764,11 @@ async function initialize() {
     await completeOAuthIfPresent()
   } catch (error) {
     history.replaceState({}, '', `${location.pathname}#product`)
-    messages.push({ role: 'assistant', text: `OpenRouter connection failed: ${error.message}`, error: true })
+    messages.push({ role: 'assistant', text: `Connection failed: ${error.message}`, error: true })
     renderMessages()
-    setLocalStatus('OpenRouter connection failed')
+    setLocalStatus('Connection failed')
   }
   await loadCatalog()
-  updateConnectionUi()
   updateSubmitState()
 }
 
