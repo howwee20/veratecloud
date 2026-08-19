@@ -74,7 +74,7 @@ nav a:hover { color: var(--ink); }
   grid-template-columns: minmax(0,1fr);
   align-items: center;
   padding: 0 4vw;
-  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
   background: #fbfbfc;
   overflow: hidden;
 }
