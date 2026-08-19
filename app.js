@@ -92,9 +92,7 @@ const AUTO_MODEL = {
 const EFFORT_LEVELS = {
   light: { label: 'Light', reasoning: 'low', budget: 0.08, maxTokens: 2048 },
   medium: { label: 'Medium', reasoning: 'medium', budget: 0.2, maxTokens: 4096 },
-  high: { label: 'High', reasoning: 'high', budget: 0.4, maxTokens: 8192 },
-  xhigh: { label: 'Extra High', reasoning: 'xhigh', budget: 0.7, maxTokens: 12288 },
-  ultra: { label: 'Ultra', reasoning: 'max', budget: 1, maxTokens: 16384 }
+  high: { label: 'High', reasoning: 'high', budget: 0.4, maxTokens: 8192 }
 }
 
 const SPEED_LEVELS = {
@@ -141,9 +139,6 @@ const homeModel = $('#homeModel')
 let homeModelMark = $('#homeModelMark')
 const homeModelName = $('#homeModelName')
 const homeModelMeta = $('#homeModelMeta')
-const policyButton = $('#policyButton')
-const policySummary = $('#policySummary')
-const policyMenu = $('#policyMenu')
 const modelPolicyRow = $('#modelPolicyRow')
 const effortPolicyRow = $('#effortPolicyRow')
 const speedPolicyRow = $('#speedPolicyRow')
@@ -172,7 +167,6 @@ let accessToken = localStorage.getItem(ACCESS_KEY) || ''
 let pendingAccessPrompt = ''
 let activeController = null
 let renderFrame = null
-let policyMenuTimer = null
 let homeModelTimer = null
 let homeModelIndex = 0
 let homeModels = []
@@ -596,13 +590,14 @@ function renderOptions() {
 function updatePolicyDisplay() {
   const effort = EFFORT_LEVELS[selectedEffort]
   const speed = SPEED_LEVELS[selectedSpeed]
-  policySummary.textContent = selectedModel.name
-  policyButton.setAttribute('aria-label', `Model ${selectedModel.name}, ${effort.label} effort, ${speed.label} speed`)
+  modelPolicyRow.setAttribute('aria-label', `Model ${selectedModel.name}`)
+  effortPolicyRow.setAttribute('aria-label', `Effort ${effort.label}`)
+  speedPolicyRow.setAttribute('aria-label', `Speed ${speed.label}`)
   modelPolicyValue.textContent = selectedModel.name
   effortPolicyValue.textContent = effort.label
   speedPolicyValue.textContent = speed.label
 
-  const existing = policyButton.querySelector('.policy-model-mark')
+  const existing = modelPolicyRow.querySelector('.policy-model-mark')
   existing?.replaceWith(createProviderMark(selectedModel, 'policy-model-mark'))
   effortMenu.querySelectorAll('[data-effort]').forEach(option => option.setAttribute('aria-checked', String(option.dataset.effort === selectedEffort)))
   speedMenu.querySelectorAll('[data-speed]').forEach(option => option.setAttribute('aria-checked', String(option.dataset.speed === selectedSpeed)))
@@ -615,48 +610,8 @@ function closePolicySubmenus() {
   speedPolicyRow.setAttribute('aria-expanded', 'false')
 }
 
-function closePolicyMenu({ returnFocus = false } = {}) {
-  closePolicySubmenus()
-  policyMenu.hidden = true
-  policyButton.setAttribute('aria-expanded', 'false')
-  if (returnFocus) policyButton.focus()
-}
-
-function openPolicyMenu() {
-  closeModelMenu()
-  policyMenu.hidden = false
-  policyButton.setAttribute('aria-expanded', 'true')
-}
-
-function togglePolicyMenu() {
-  if (policyMenu.hidden) openPolicyMenu()
-  else closePolicyMenu()
-}
-
-function clearPolicyMenuTimer() {
-  if (!policyMenuTimer) return
-  window.clearTimeout(policyMenuTimer)
-  policyMenuTimer = null
-}
-
-function schedulePolicyMenuOpen() {
-  clearPolicyMenuTimer()
-  policyMenuTimer = window.setTimeout(() => {
-    openPolicyMenu()
-    policyMenuTimer = null
-  }, 110)
-}
-
-function schedulePolicyMenuClose() {
-  clearPolicyMenuTimer()
-  policyMenuTimer = window.setTimeout(() => {
-    const stillInside = policyButton.matches(':hover') || policyMenu.matches(':hover') || effortMenu.matches(':hover') || speedMenu.matches(':hover')
-    if (!stillInside) closePolicyMenu()
-    policyMenuTimer = null
-  }, 220)
-}
-
 function openPolicySubmenu(menu, trigger) {
+  closeModelMenu()
   const willOpen = menu.hidden
   closePolicySubmenus()
   if (!willOpen) return
@@ -665,7 +620,7 @@ function openPolicySubmenu(menu, trigger) {
 }
 
 function openModelMenu({ focusSearch = false } = {}) {
-  closePolicyMenu()
+  closePolicySubmenus()
   if (modelMenu.hidden) {
     modelMenu.hidden = false
     renderOptions()
@@ -675,7 +630,7 @@ function openModelMenu({ focusSearch = false } = {}) {
 
 function closeModelMenu({ returnFocus = false } = {}) {
   modelMenu.hidden = true
-  if (returnFocus) policyButton.focus()
+  if (returnFocus) modelPolicyRow.focus()
 }
 
 function updateAdvancedFiltersButton() {
@@ -1058,13 +1013,6 @@ async function loadServiceStatus() {
   }
 }
 
-policyButton.addEventListener('click', togglePolicyMenu)
-policyButton.addEventListener('pointerenter', schedulePolicyMenuOpen)
-policyButton.addEventListener('pointerleave', schedulePolicyMenuClose)
-;[policyMenu, effortMenu, speedMenu].forEach(menu => {
-  menu.addEventListener('pointerenter', clearPolicyMenuTimer)
-  menu.addEventListener('pointerleave', schedulePolicyMenuClose)
-})
 modelPolicyRow.addEventListener('click', () => openModelMenu({ focusSearch: true }))
 effortPolicyRow.addEventListener('click', () => openPolicySubmenu(effortMenu, effortPolicyRow))
 speedPolicyRow.addEventListener('click', () => openPolicySubmenu(speedMenu, speedPolicyRow))
@@ -1134,15 +1082,14 @@ document.addEventListener('pointerdown', event => {
   if (!modelMenu.hidden && !modelMenu.contains(event.target) && !homeModel.contains(event.target)) {
     closeModelMenu()
   }
-  const insidePolicy = policyButton.contains(event.target) || policyMenu.contains(event.target) || effortMenu.contains(event.target) || speedMenu.contains(event.target)
-  if (!policyMenu.hidden && !insidePolicy) closePolicyMenu()
+  const insidePolicy = modelPolicyRow.contains(event.target) || effortPolicyRow.contains(event.target) || speedPolicyRow.contains(event.target) || effortMenu.contains(event.target) || speedMenu.contains(event.target)
+  if (!insidePolicy) closePolicySubmenus()
 })
 
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape') return
   if (!modelMenu.hidden) return closeModelMenu({ returnFocus: true })
   if (!effortMenu.hidden || !speedMenu.hidden) return closePolicySubmenus()
-  if (!policyMenu.hidden) closePolicyMenu({ returnFocus: true })
 })
 
 prompt.addEventListener('input', () => {

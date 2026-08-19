@@ -20,18 +20,6 @@ const EFFORT_POLICIES = {
     maxTokens: 8192,
     maxBudget: 0.4,
     instruction: 'Reason carefully. Work through the task, inspect likely failure points, and verify the answer before returning it.'
-  },
-  xhigh: {
-    reasoning: 'xhigh',
-    maxTokens: 12288,
-    maxBudget: 0.7,
-    instruction: 'Apply deep effort. Consider alternatives, challenge the first answer, and return the strongest verified result.'
-  },
-  ultra: {
-    reasoning: 'max',
-    maxTokens: 16384,
-    maxBudget: 1,
-    instruction: 'Use maximum useful effort. Explore multiple approaches, resolve contradictions, and verify the final result thoroughly.'
   }
 }
 
