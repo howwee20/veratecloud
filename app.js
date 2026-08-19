@@ -453,7 +453,7 @@ async function completeOAuthIfPresent() {
   localStorage.setItem(OPENROUTER_KEY_STORAGE, openRouterKey)
   sessionStorage.removeItem(PKCE_STORAGE)
   history.replaceState({}, '', `${location.pathname}#product`)
-  setLocalStatus('Ready')
+  setLocalStatus('')
 }
 
 async function loadCatalog() {
@@ -709,7 +709,7 @@ cycle($('#proofButton'), ['Standard', 'High', 'Maximum'], '#proofLabel')
 
 prompt.addEventListener('input', () => {
   updateSubmitState()
-  setLocalStatus(prompt.value.trim() ? 'Draft saved in this browser' : 'Ready')
+  setLocalStatus(prompt.value.trim() ? 'Draft saved in this browser' : '')
   saveState()
 })
 
