@@ -49,19 +49,6 @@ a { color: inherit; text-decoration: none; }
 .site-header .brand { font-size: 22px; }
 .site-header .brand-mark { width: 38px; height: 38px; }
 .site-header .brand-orb { width: 8.5px; height: 8.5px; }
-.market-ticker { position: absolute; z-index: 29; top: 82px; right: 0; left: 0; height: 43px; display: flex; align-items: stretch; border-bottom: 1px solid #ededf1; background: rgba(255,255,255,.97); color: #54545d; }
-.market-ticker[hidden] { display: none; }
-.market-ticker-viewport { min-width: 0; flex: 1 1 auto; overflow: hidden; mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%); }
-.market-ticker-track { width: max-content; height: 100%; display: flex; will-change: transform; animation: model-ticker-scroll 86s linear infinite; }
-.market-ticker:hover .market-ticker-track { animation-play-state: paused; }
-.market-ticker-group { height: 100%; display: flex; align-items: center; padding-right: 24px; }
-.market-ticker-item { height: 100%; display: grid; grid-template-columns: 22px auto auto; align-items: center; gap: 8px; padding: 0 18px; border-right: 1px solid #efeff2; white-space: nowrap; }
-.ticker-model-mark { width: 22px; height: 22px; display: grid; place-items: center; overflow: hidden; border: 1px solid #e4e4e8; border-radius: 7px; background: #fff; }
-.ticker-model-mark img { width: 15px; height: 15px; object-fit: contain; }
-.market-ticker-item strong { color: #3c3c43; font-size: 8.5px; font-weight: 690; }
-.market-ticker-item small { color: #96969f; font-size: 7.5px; font-variant-numeric: tabular-nums; }
-@keyframes model-ticker-scroll { to { transform: translateX(-50%); } }
-.has-conversation .market-ticker, .has-account .market-ticker { display: none; }
 .brand {
   display: inline-flex;
   align-items: center;
@@ -378,8 +365,6 @@ body:not(.has-conversation):has(.model-menu:not([hidden])) .composer-wrap { top:
 
 @media (max-width: 720px) {
   .site-header { height: 70px; padding: 0 18px; }
-  .market-ticker { top: 70px; height: 40px; }
-  .market-ticker-item { padding-inline: 14px; }
   nav { gap: 10px; font-size: 11px; }
   nav > a:not(.github-link) { display: none; }
   .github-link { padding: 8px 11px; }
@@ -442,8 +427,6 @@ body:not(.has-conversation):has(.model-menu:not([hidden])) .composer-wrap { top:
   .composer-hover-preview { animation: none; }
   .brand-orb { animation: none; }
   .brand-mark { animation: none; }
-  .market-ticker-track { animation: none; }
-  .market-ticker-group[aria-hidden="true"] { display: none; }
   .composer-control-model.is-entering .policy-model-mark, .composer-control-model.is-entering .composer-control-copy strong { animation: none; }
   .home-identity, .composer-control-model .policy-model-mark, .composer-control-model .composer-control-copy strong, .prompt-examples button { transition: none; }
 }

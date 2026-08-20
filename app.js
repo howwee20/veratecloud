@@ -133,8 +133,6 @@ const threadList = $('#threadList')
 const infoDialog = $('#infoDialog')
 const infoDialogTitle = $('#infoDialogTitle')
 const infoDialogBody = $('#infoDialogBody')
-const modelTicker = $('#modelTicker')
-const modelTickerTrack = $('#modelTickerTrack')
 const modelPolicyRow = $('#modelPolicyRow')
 const effortPolicyRow = $('#effortPolicyRow')
 const speedPolicyRow = $('#speedPolicyRow')
@@ -542,47 +540,6 @@ function formatPrice(model) {
   return `${concise(input)} / ${concise(output)} per 1M`
 }
 
-function formatTickerPrice(model) {
-  if (model.isFree) return 'Free'
-  const input = model.promptPrice * 1000000
-  const output = model.completionPrice * 1000000
-  const money = value => value < 0.01 ? '<$0.01' : `$${value < 10 ? value.toFixed(2) : Math.round(value)}`
-  return `${money(input)} in · ${money(output)} out / 1M`
-}
-
-function createTickerGroup(models, duplicate = false) {
-  const group = document.createElement('div')
-  group.className = 'market-ticker-group'
-  if (duplicate) group.setAttribute('aria-hidden', 'true')
-
-  models.forEach(model => {
-    const item = document.createElement('div')
-    item.className = 'market-ticker-item'
-    item.appendChild(createProviderMark(model, 'ticker-model-mark'))
-
-    const name = document.createElement('strong')
-    name.textContent = model.name
-    const price = document.createElement('small')
-    price.textContent = formatTickerPrice(model)
-    item.append(name, price)
-    group.appendChild(item)
-  })
-
-  return group
-}
-
-function renderModelTicker() {
-  const models = featuredHomeModels()
-  modelTickerTrack.replaceChildren()
-  if (!models.length || document.body.classList.contains('has-conversation') || document.body.classList.contains('has-account')) {
-    modelTicker.hidden = true
-    return
-  }
-
-  modelTickerTrack.append(createTickerGroup(models), createTickerGroup(models, true))
-  modelTicker.hidden = false
-}
-
 function filteredModels() {
   const query = modelSearch.value.trim().toLowerCase()
   const visible = allModels().filter(model => {
@@ -891,7 +848,6 @@ function formatPolicy(effort, speed) {
 function renderMessages() {
   conversation.replaceChildren()
   document.body.classList.toggle('has-conversation', messages.length > 0)
-  renderModelTicker()
   if (messages.length) {
     stopHomeModelRotation()
     updatePolicyDisplay()
@@ -991,7 +947,6 @@ async function loadShowcaseCatalog() {
   if (!response?.ok) return
   const payload = await response.json()
   showcaseCatalog = (Array.isArray(payload.data) ? payload.data : []).map(normalizeModel).filter(model => model.id && model.id !== AUTO_MODEL.id)
-  renderModelTicker()
   if (selectedModel.isAuto && !document.body.classList.contains('has-conversation') && !document.body.classList.contains('has-account') && !activeComposerPanel) startHomeModelRotation()
 }
 
@@ -1004,7 +959,6 @@ async function loadCatalog() {
     const payload = await response.json()
     catalog = (Array.isArray(payload.data) ? payload.data : []).map(normalizeModel).filter(model => model.id && model.id !== AUTO_MODEL.id)
     chooseModel(preferredModelId, false)
-    renderModelTicker()
     startHomeModelRotation()
     void loadShowcaseCatalog()
     setLocalStatus('')
