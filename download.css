@@ -1,0 +1,34 @@
+@font-face { font-family: "Plus Jakarta Sans"; src: url("assets/plus-jakarta-sans.woff2") format("woff2"); font-weight: 200 800; font-display: swap; }
+:root { color: #202025; background: #fff; font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+* { box-sizing: border-box; }
+body { min-width: 320px; margin: 0; background: radial-gradient(circle at 50% 28%, #f7f4ff 0, #fff 33%); -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+header { height: 82px; display: flex; align-items: center; justify-content: space-between; padding: 0 max(24px, 5vw); border-bottom: 1px solid #e9e9ed; background: rgba(255,255,255,.88); backdrop-filter: blur(20px); }
+.brand { display: flex; align-items: center; gap: 10px; font-size: 21px; font-weight: 780; letter-spacing: -.05em; }
+.brand img { width: 38px; height: 38px; object-fit: contain; }
+.preview { padding: 7px 11px; border: 1px solid #e0d9f7; border-radius: 999px; color: #6847bf; background: #faf8ff; font-size: 10px; font-weight: 700; }
+main { width: min(980px, calc(100% - 40px)); margin: 0 auto; padding: 88px 0 64px; }
+.hero { max-width: 760px; margin: 0 auto 58px; text-align: center; }
+.hero-mark { width: 72px; height: 72px; object-fit: contain; filter: drop-shadow(0 16px 28px rgba(73,42,142,.14)); }
+.eyebrow { margin: 22px 0 8px; color: #8061d2; font-size: 11px; font-weight: 760; letter-spacing: .12em; text-transform: uppercase; }
+h1 { margin: 0; font-size: clamp(42px, 7vw, 74px); line-height: 1; letter-spacing: -.075em; }
+.lead { max-width: 660px; margin: 22px auto 0; color: #797982; font-size: 17px; line-height: 1.65; }
+.downloads { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 18px; }
+article { padding: 28px; border: 1px solid #e2e2e8; border-radius: 25px; background: rgba(255,255,255,.9); box-shadow: 0 20px 60px rgba(35,25,61,.07); }
+.platform { display: flex; align-items: center; gap: 13px; margin-bottom: 24px; }
+.platform > span { width: 45px; height: 45px; display: grid; place-items: center; border: 1px solid #e3e3e8; border-radius: 13px; background: #f7f7f9; font-size: 25px; }
+.apple-mark { font-size: 13px !important; }
+.platform div { display: flex; flex-direction: column; gap: 3px; }
+.platform strong { font-size: 18px; letter-spacing: -.035em; }
+.platform small { color: #9898a1; font-size: 11px; }
+.primary { height: 48px; display: grid; place-items: center; border-radius: 13px; background: #212126; color: #fff; font-size: 13px; font-weight: 730; transition: transform .16s ease, background .16s ease; }
+.primary:hover { transform: translateY(-1px); background: #37373e; }
+article p { margin: 14px 4px 0; color: #909099; font-size: 10px; line-height: 1.55; }
+article b { color: #62626a; }
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 34px; }
+.steps div { display: flex; align-items: flex-start; gap: 12px; padding: 18px; border-radius: 16px; background: #f7f7f9; }
+.steps span { width: 24px; height: 24px; flex: 0 0 auto; display: grid; place-items: center; border-radius: 50%; background: #fff; color: #7251c8; font-size: 10px; font-weight: 800; box-shadow: 0 2px 8px rgba(27,27,34,.08); }
+.steps p { margin: 0; color: #92929b; font-size: 10px; line-height: 1.55; }
+.steps strong { display: block; margin-bottom: 2px; color: #3d3d44; font-size: 11px; }
+.update-note { margin: 30px 0 0; color: #a0a0a9; font-size: 10px; text-align: center; }
+@media (max-width: 720px) { main { padding-top: 55px; } .downloads, .steps { grid-template-columns: 1fr; } .lead { font-size: 14px; } }

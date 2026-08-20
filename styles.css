@@ -49,6 +49,8 @@ a { color: inherit; text-decoration: none; }
 .site-header .brand { font-size: 22px; }
 .site-header .brand-mark { width: 38px; height: 38px; }
 .site-header .brand-orb { width: 8.5px; height: 8.5px; }
+.download-nav { margin-left: auto; padding: 10px 17px; border: 1px solid #dedee5; border-radius: 999px; background: #1f1f24; color: #fff; font-size: 12px; font-weight: 700; letter-spacing: -.02em; }
+.download-nav:hover { background: #34343a; }
 .market-ticker { position: absolute; z-index: 29; top: 82px; right: 0; left: 0; height: 43px; display: flex; align-items: stretch; border-bottom: 1px solid #ededf1; background: rgba(255,255,255,.97); color: #54545d; }
 .market-ticker[hidden] { display: none; }
 .market-ticker-viewport { min-width: 0; flex: 1 1 auto; overflow: hidden; mask-image: linear-gradient(90deg, transparent 0, #000 16px, #000 calc(100% - 16px), transparent 100%); }
