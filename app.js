@@ -112,12 +112,6 @@ const modelMenu = $('#modelMenu')
 const modelOptions = $('#modelOptions')
 const modelSearch = $('#modelSearch')
 const modelMenuClose = $('#modelMenuClose')
-const advancedFilters = $('#advancedFilters')
-const advancedFiltersButton = $('#advancedFiltersButton')
-const resetFiltersButton = $('#resetFiltersButton')
-const providerFilter = $('#providerFilter')
-const contextFilter = $('#contextFilter')
-const modalityFilter = $('#modalityFilter')
 const prompt = $('#prompt')
 const submitButton = $('#submitButton')
 const conversation = $('#conversation')
@@ -139,10 +133,8 @@ const threadList = $('#threadList')
 const infoDialog = $('#infoDialog')
 const infoDialogTitle = $('#infoDialogTitle')
 const infoDialogBody = $('#infoDialogBody')
-const homeModel = $('#homeModel')
-let homeModelMark = $('#homeModelMark')
-const homeModelName = $('#homeModelName')
-const homeModelMeta = $('#homeModelMeta')
+const modelTicker = $('#modelTicker')
+const modelTickerTrack = $('#modelTickerTrack')
 const modelPolicyRow = $('#modelPolicyRow')
 const effortPolicyRow = $('#effortPolicyRow')
 const speedPolicyRow = $('#speedPolicyRow')
@@ -153,6 +145,7 @@ const effortMenu = $('#effortMenu')
 const speedMenu = $('#speedMenu')
 const composerHoverPreview = $('#composerHoverPreview')
 const composerHoverPreviewTitle = $('#composerHoverPreviewTitle')
+const hoverModelFilters = $('#hoverModelFilters')
 const composerHoverPreviewWheel = $('#composerHoverPreviewWheel')
 
 let catalog = []
@@ -161,6 +154,7 @@ let preferredModelId = AUTO_MODEL.id
 let selectedEffort = 'standard'
 let selectedSpeed = 'standard'
 let catalogFilter = 'all'
+let hoverModelFilter = 'all'
 let favorites = []
 let recentModels = []
 let attachments = []
@@ -482,43 +476,55 @@ function featuredHomeModels() {
   return featured.length >= 6 ? featured : source.slice(0, 12)
 }
 
-function homeModelDescription(model) {
-  const details = [model.provider]
-  if (model.isFree) details.push('Free')
-  if (model.supportsTools) details.push('Tools')
-  if (model.supportsImages) details.push('Vision')
-  if (details.length < 3) details.push(formatContext(model.contextLength))
-  return details.slice(0, 3).join(' · ')
+function paintHomeModel(model) {
+  const existing = modelPolicyRow.querySelector('.policy-model-mark')
+  existing?.replaceWith(createProviderMark(model, 'policy-model-mark'))
+  modelPolicyValue.textContent = model.name
+  modelPolicyRow.setAttribute('aria-label', `Model showcase ${model.name}. Auto routing is active.`)
 }
 
-function paintHomeModel(model) {
-  const nextMark = createProviderMark(model, 'home-model-mark')
-  nextMark.id = 'homeModelMark'
-  homeModelMark.replaceWith(nextMark)
-  homeModelMark = nextMark
-  homeModelName.textContent = model.name
-  homeModelMeta.textContent = homeModelDescription(model)
+function homeModelShowcasePaused() {
+  return !homeModels.length ||
+    document.body.classList.contains('has-conversation') ||
+    document.body.classList.contains('has-account') ||
+    !selectedModel.isAuto ||
+    activeComposerPanel ||
+    composerHoverPreviewTrigger === modelPolicyRow
 }
 
 function rotateHomeModel() {
-  if (!homeModels.length || document.body.classList.contains('has-conversation')) return
-  homeModel.classList.add('is-switching')
+  if (homeModelShowcasePaused()) return
+  modelPolicyRow.classList.remove('is-entering')
+  modelPolicyRow.classList.add('is-leaving')
   window.setTimeout(() => {
+    if (homeModelShowcasePaused()) {
+      modelPolicyRow.classList.remove('is-leaving')
+      return
+    }
     homeModelIndex = (homeModelIndex + 1) % homeModels.length
     paintHomeModel(homeModels[homeModelIndex])
-    homeModel.classList.remove('is-switching')
-  }, 170)
+    modelPolicyRow.classList.remove('is-leaving')
+    modelPolicyRow.classList.add('is-entering')
+    window.setTimeout(() => modelPolicyRow.classList.remove('is-entering'), 320)
+  }, 190)
 }
 
 function startHomeModelRotation() {
   if (homeModelTimer) window.clearInterval(homeModelTimer)
+  homeModelTimer = null
   homeModels = featuredHomeModels()
   homeModelIndex = 0
-  if (!homeModels.length) return
+  if (!homeModels.length || document.body.classList.contains('has-conversation') || document.body.classList.contains('has-account') || !selectedModel.isAuto || activeComposerPanel) return
   paintHomeModel(homeModels[0])
   if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches && homeModels.length > 1) {
-    homeModelTimer = window.setInterval(rotateHomeModel, 1900)
+    homeModelTimer = window.setInterval(rotateHomeModel, 4600)
   }
+}
+
+function stopHomeModelRotation() {
+  if (homeModelTimer) window.clearInterval(homeModelTimer)
+  homeModelTimer = null
+  modelPolicyRow.classList.remove('is-leaving', 'is-entering')
 }
 
 function formatContext(value) {
@@ -536,23 +542,56 @@ function formatPrice(model) {
   return `${concise(input)} / ${concise(output)} per 1M`
 }
 
+function formatTickerPrice(model) {
+  if (model.isFree) return 'Free'
+  const input = model.promptPrice * 1000000
+  const output = model.completionPrice * 1000000
+  const money = value => value < 0.01 ? '<$0.01' : `$${value < 10 ? value.toFixed(2) : Math.round(value)}`
+  return `${money(input)} in · ${money(output)} out / 1M`
+}
+
+function createTickerGroup(models, duplicate = false) {
+  const group = document.createElement('div')
+  group.className = 'market-ticker-group'
+  if (duplicate) group.setAttribute('aria-hidden', 'true')
+
+  models.forEach(model => {
+    const item = document.createElement('div')
+    item.className = 'market-ticker-item'
+    item.appendChild(createProviderMark(model, 'ticker-model-mark'))
+
+    const name = document.createElement('strong')
+    name.textContent = model.name
+    const price = document.createElement('small')
+    price.textContent = formatTickerPrice(model)
+    item.append(name, price)
+    group.appendChild(item)
+  })
+
+  return group
+}
+
+function renderModelTicker() {
+  const models = featuredHomeModels()
+  modelTickerTrack.replaceChildren()
+  if (!models.length || document.body.classList.contains('has-conversation') || document.body.classList.contains('has-account')) {
+    modelTicker.hidden = true
+    return
+  }
+
+  modelTickerTrack.append(createTickerGroup(models), createTickerGroup(models, true))
+  modelTicker.hidden = false
+}
+
 function filteredModels() {
   const query = modelSearch.value.trim().toLowerCase()
-  const minimumContext = Number(contextFilter.value)
   const visible = allModels().filter(model => {
     const matchesFilter = catalogFilter === 'all' ||
-      (catalogFilter === 'agent' && model.supportsTools) ||
       (catalogFilter === 'free' && model.isFree) ||
-      (catalogFilter === 'vision' && model.supportsImages) ||
-      (catalogFilter === 'favorites' && favorites.includes(model.id)) ||
-      (catalogFilter === 'recent' && recentModels.includes(model.id))
-    const matchesProvider = providerFilter.value === 'all' || model.providerSlug === providerFilter.value
-    const matchesContext = !minimumContext || model.contextLength >= minimumContext
-    const matchesModality = modalityFilter.value === 'all' || model.supportsImages
+      (catalogFilter === 'paid' && !model.isAuto && !model.isFree)
     const haystack = `${model.name} ${model.provider} ${model.id} ${model.note}`.toLowerCase()
-    return matchesFilter && matchesProvider && matchesContext && matchesModality && haystack.includes(query)
+    return matchesFilter && haystack.includes(query)
   })
-  if (catalogFilter === 'recent') visible.sort((a, b) => recentModels.indexOf(a.id) - recentModels.indexOf(b.id))
   return visible
 }
 
@@ -654,8 +693,13 @@ function renderHoverPreview(kind) {
   const fragment = document.createDocumentFragment()
 
   if (kind === 'model') {
-    composerHoverPreviewTitle.textContent = 'Models'
-    allModels().forEach(model => {
+    composerHoverPreviewTitle.hidden = true
+    hoverModelFilters.hidden = false
+    hoverModelFilters.querySelectorAll('[data-hover-model-filter]').forEach(button => button.classList.toggle('active', button.dataset.hoverModelFilter === hoverModelFilter))
+    const visibleModels = allModels().filter(model => hoverModelFilter === 'all' ||
+      (hoverModelFilter === 'free' && model.isFree) ||
+      (hoverModelFilter === 'paid' && !model.isAuto && !model.isFree))
+    visibleModels.forEach(model => {
       fragment.appendChild(createHoverPreviewOption({
         label: model.name,
         meta: model.isAuto ? 'PolySwap chooses the route' : `${model.provider} · ${formatContext(model.contextLength)}`,
@@ -667,6 +711,8 @@ function renderHoverPreview(kind) {
       }))
     })
   } else if (kind === 'effort') {
+    composerHoverPreviewTitle.hidden = false
+    hoverModelFilters.hidden = true
     composerHoverPreviewTitle.textContent = 'Effort'
     const descriptions = { quick: 'Direct response', standard: 'Balanced work', deep: 'Thorough and verified' }
     Object.entries(EFFORT_LEVELS).forEach(([value, level]) => {
@@ -679,6 +725,8 @@ function renderHoverPreview(kind) {
       }))
     })
   } else if (kind === 'speed') {
+    composerHoverPreviewTitle.hidden = false
+    hoverModelFilters.hidden = true
     composerHoverPreviewTitle.textContent = 'Speed'
     const descriptions = { standard: 'Normal delivery', fast: 'Priority delivery' }
     Object.entries(SPEED_LEVELS).forEach(([value, level]) => {
@@ -691,6 +739,8 @@ function renderHoverPreview(kind) {
       }))
     })
   } else {
+    composerHoverPreviewTitle.hidden = false
+    hoverModelFilters.hidden = true
     composerHoverPreviewTitle.textContent = 'Your chats'
     fragment.appendChild(createHoverPreviewOption({
       label: 'New chat',
@@ -763,18 +813,17 @@ function closeComposerPanels({ returnFocus = false } = {}) {
   window.clearTimeout(composerPanelCloseTimer)
   const priorTrigger = activeComposerPanel === modelMenu
     ? modelPolicyRow
-    : activeComposerPanel === effortMenu
-      ? effortPolicyRow
-      : activeComposerPanel === speedMenu
-        ? speedPolicyRow
-        : activeComposerPanel === historyDrawer
-          ? historyButton
-          : null
+    : activeComposerPanel === historyDrawer
+      ? historyButton
+      : null
   ;[modelMenu, effortMenu, speedMenu, historyDrawer].forEach(panel => { panel.hidden = true })
-  ;[modelPolicyRow, effortPolicyRow, speedPolicyRow, historyButton].forEach(trigger => trigger.setAttribute('aria-expanded', 'false'))
+  ;[modelPolicyRow, historyButton].forEach(trigger => trigger.setAttribute('aria-expanded', 'false'))
   activeComposerPanel = null
   composerPanelPinned = false
   if (returnFocus) priorTrigger?.focus()
+  window.setTimeout(() => {
+    if (!activeComposerPanel && selectedModel.isAuto && !document.body.classList.contains('has-conversation') && !document.body.classList.contains('has-account')) startHomeModelRotation()
+  }, 0)
 }
 
 function openComposerPanel(panel, trigger, { pin = false, focusSearch = false } = {}) {
@@ -802,6 +851,8 @@ function openPolicySubmenu(menu, trigger, { pin = true } = {}) {
 }
 
 function openModelMenu({ focusSearch = false, pin = true } = {}) {
+  stopHomeModelRotation()
+  updatePolicyDisplay()
   openComposerPanel(modelMenu, modelPolicyRow, { pin, focusSearch })
 }
 
@@ -809,17 +860,13 @@ function closeModelMenu({ returnFocus = false } = {}) {
   closeComposerPanels({ returnFocus })
 }
 
-function updateAdvancedFiltersButton() {
-  const active = providerFilter.value !== 'all' || contextFilter.value !== '0' || modalityFilter.value !== 'all'
-  advancedFiltersButton.classList.toggle('active', active)
-  advancedFiltersButton.setAttribute('aria-label', active ? 'Filters are active' : 'More model filters')
-}
-
 function chooseModel(id, persist = true) {
   selectedModel = allModels().find(model => model.id === id) || AUTO_MODEL
   preferredModelId = selectedModel.id
   recentModels = [selectedModel.id, ...recentModels.filter(modelId => modelId !== selectedModel.id)].slice(0, 12)
   updatePolicyDisplay()
+  if (selectedModel.isAuto && !document.body.classList.contains('has-conversation') && !document.body.classList.contains('has-account')) startHomeModelRotation()
+  else stopHomeModelRotation()
   closeModelMenu()
   renderOptions()
   if (persist) saveState()
@@ -844,6 +891,13 @@ function formatPolicy(effort, speed) {
 function renderMessages() {
   conversation.replaceChildren()
   document.body.classList.toggle('has-conversation', messages.length > 0)
+  renderModelTicker()
+  if (messages.length) {
+    stopHomeModelRotation()
+    updatePolicyDisplay()
+  } else if (selectedModel.isAuto) {
+    startHomeModelRotation()
+  }
   if (!messages.length) return
   const turns = document.createElement('div')
   turns.className = 'turns'
@@ -932,6 +986,15 @@ function setLocalStatus(text) {
   localState.textContent = text
 }
 
+async function loadShowcaseCatalog() {
+  const response = await fetch(OPENROUTER_SHOWCASE_MODELS_URL, { headers: { Accept: 'application/json' } }).catch(() => null)
+  if (!response?.ok) return
+  const payload = await response.json()
+  showcaseCatalog = (Array.isArray(payload.data) ? payload.data : []).map(normalizeModel).filter(model => model.id && model.id !== AUTO_MODEL.id)
+  renderModelTicker()
+  if (selectedModel.isAuto && !document.body.classList.contains('has-conversation') && !document.body.classList.contains('has-account') && !activeComposerPanel) startHomeModelRotation()
+}
+
 async function loadCatalog() {
   setLocalStatus('')
   try {
@@ -940,18 +1003,10 @@ async function loadCatalog() {
     if (!response.ok) throw new Error(`catalog returned ${response.status}`)
     const payload = await response.json()
     catalog = (Array.isArray(payload.data) ? payload.data : []).map(normalizeModel).filter(model => model.id && model.id !== AUTO_MODEL.id)
-    const showcaseResponse = await fetch(OPENROUTER_SHOWCASE_MODELS_URL, { headers: { Accept: 'application/json' } }).catch(() => null)
-    if (showcaseResponse?.ok) {
-      const showcasePayload = await showcaseResponse.json()
-      showcaseCatalog = (Array.isArray(showcasePayload.data) ? showcasePayload.data : []).map(normalizeModel).filter(model => model.id && model.id !== AUTO_MODEL.id)
-    } else {
-      showcaseCatalog = []
-    }
-    providerFilter.replaceChildren(new Option('Any provider', 'all'))
-    const providers = [...new Map(catalog.map(model => [model.providerSlug, model.provider])).entries()].sort((a, b) => a[1].localeCompare(b[1]))
-    providers.forEach(([slug, name]) => providerFilter.appendChild(new Option(name, slug)))
     chooseModel(preferredModelId, false)
+    renderModelTicker()
     startHomeModelRotation()
+    void loadShowcaseCatalog()
     setLocalStatus('')
   } catch (error) {
     catalog = []
@@ -1200,14 +1255,6 @@ modelPolicyRow.addEventListener('click', () => {
   closeHoverPreview()
   openModelMenu({ focusSearch: true, pin: true })
 })
-effortPolicyRow.addEventListener('click', () => {
-  closeHoverPreview()
-  openPolicySubmenu(effortMenu, effortPolicyRow, { pin: true })
-})
-speedPolicyRow.addEventListener('click', () => {
-  closeHoverPreview()
-  openPolicySubmenu(speedMenu, speedPolicyRow, { pin: true })
-})
 historyButton.addEventListener('click', () => {
   closeHoverPreview()
   openHistoryDrawer({ pin: true })
@@ -1239,6 +1286,13 @@ composerHoverPreview.addEventListener('pointerleave', event => {
 })
 
 composerHoverPreview.addEventListener('click', event => {
+  const filter = event.target.closest('[data-hover-model-filter]')
+  if (filter) {
+    hoverModelFilter = filter.dataset.hoverModelFilter
+    renderHoverPreview('model')
+    composerHoverPreviewWheel.scrollTop = 0
+    return
+  }
   const option = event.target.closest('[data-preview-action]')
   if (!option) return
   const { previewAction: action, previewValue: value } = option.dataset
@@ -1309,26 +1363,8 @@ document.querySelector('.model-filter-bar').addEventListener('click', event => {
   renderOptions()
 })
 
-advancedFiltersButton.addEventListener('click', () => {
-  advancedFilters.hidden = !advancedFilters.hidden
-  advancedFiltersButton.setAttribute('aria-expanded', String(!advancedFilters.hidden))
-})
-
-resetFiltersButton.addEventListener('click', () => {
-  providerFilter.value = 'all'
-  contextFilter.value = '0'
-  modalityFilter.value = 'all'
-  updateAdvancedFiltersButton()
-  renderOptions()
-})
-
-;[providerFilter, contextFilter, modalityFilter].forEach(filter => filter.addEventListener('change', () => {
-  updateAdvancedFiltersButton()
-  renderOptions()
-}))
-
 document.addEventListener('pointerdown', event => {
-  if (!composer.contains(event.target) && !composerHoverPreview.contains(event.target) && !homeModel.contains(event.target)) {
+  if (!composer.contains(event.target) && !composerHoverPreview.contains(event.target)) {
     closeComposerPanels()
     closeHoverPreview()
   }
@@ -1412,8 +1448,6 @@ conversation.addEventListener('click', async event => {
   saveState()
 })
 
-homeModel.addEventListener('click', () => openModelMenu())
-
 $('#promptExamples').addEventListener('click', event => {
   const example = event.target.closest('[data-example-prompt]')
   if (!example) return
@@ -1449,6 +1483,10 @@ fileInput.addEventListener('change', () => {
 
 async function initialize() {
   restoreState()
+  if (!messages.length && !document.body.classList.contains('has-account')) {
+    preferredModelId = AUTO_MODEL.id
+    selectedModel = AUTO_MODEL
+  }
   updatePolicyDisplay()
   renderOptions()
   const invite = new URL(window.location.href).searchParams.get('invite')
