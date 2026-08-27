@@ -71,6 +71,8 @@
     previousStatuses: new Map(),
     serviceWorker: null,
     mediaPlayers: [],
+    playback: null,
+    playbackRevision: -1,
     search: ""
   };
 
@@ -118,7 +120,16 @@
     swapButton: document.getElementById("swapButton"),
     pauseButton: document.getElementById("pauseButton"),
     cancelButton: document.getElementById("cancelButton"),
-    taskActions: document.getElementById("taskActions")
+    taskActions: document.getElementById("taskActions"),
+    playbackControls: document.getElementById("playbackControls"),
+    playbackComposer: document.getElementById("playbackComposer"),
+    playbackPrompt: document.getElementById("playbackPrompt"),
+    playbackModel: document.getElementById("playbackModel"),
+    playbackPause: document.getElementById("playbackPause"),
+    playbackNext: document.getElementById("playbackNext"),
+    pairPlayer: document.getElementById("pairPlayer"),
+    pairingCode: document.getElementById("pairingCode"),
+    playbackStatus: document.getElementById("playbackStatus")
   };
 
   localStorage.setItem(STORAGE.session, state.sessionId);
@@ -408,6 +419,7 @@
         ? { jobs: demoSeed() }
         : await api("/v1/jobs?sessionId=" + encodeURIComponent(state.sessionId));
       const nextJobs = payload.jobs || [];
+      if (!state.demo) await loadPlayback({ quiet: true });
       notifyTransitions(nextJobs);
       state.jobs = nextJobs;
       renderJobs();
@@ -426,6 +438,31 @@
       }
       setRuntimeNote("PolySwap could not connect · " + error.message, "error");
     }
+  }
+
+  async function loadPlayback(options) {
+    try {
+      const payload = await api("/v1/playback?sessionId=" + encodeURIComponent(state.sessionId));
+      const previousRevision = state.playbackRevision;
+      state.playback = payload.playback;
+      state.playbackRevision = Number(payload.playback?.revision || 0);
+      if (previousRevision >= 0 && state.playbackRevision !== previousRevision) applyPlaybackToWebPlayers(payload.playback);
+      if (state.activeJob?.kind === "media") renderPlaybackControls(state.activeJob);
+    } catch (error) {
+      if (!options?.quiet) setRuntimeNote("The player could not connect · " + error.message, "error");
+    }
+  }
+
+  function applyPlaybackToWebPlayers(playback) {
+    state.mediaPlayers.forEach((player) => {
+      try {
+        if (playback.lastCommand === "pause") player.pauseVideo();
+        else if (playback.lastCommand === "stop") player.stopVideo();
+        else if (playback.lastCommand === "next") player.nextVideo();
+        else if (playback.lastCommand === "previous") player.previousVideo();
+        else if (playback.lastCommand === "resume") player.playVideo();
+      } catch (_) {}
+    });
   }
 
   function notifyTransitions(nextJobs) {
@@ -645,6 +682,7 @@
           state.selectedModel = model;
           localStorage.setItem(STORAGE.model, model.id);
           updateComposer();
+          if (els.playbackModel) els.playbackModel.textContent = model.short;
         }
         state.swapJobId = null;
         els.modelDialog.close();
@@ -730,6 +768,7 @@
     }
 
     renderTimeline(job);
+    renderPlaybackControls(job);
     const terminal = TERMINAL.has(job.status);
     els.taskActions.hidden = job.kind === "phone" || job.kind === "media";
     els.swapButton.textContent = terminal ? "Run again" : "Change model";
@@ -743,6 +782,101 @@
     els.pauseButton.onclick = () => actOnJob(job, job.status === "paused" ? "resume" : "pause");
     els.cancelButton.disabled = terminal;
     els.cancelButton.onclick = () => actOnJob(job, "cancel");
+  }
+
+  function renderPlaybackControls(job) {
+    const isMedia = job?.kind === "media";
+    els.playbackControls.hidden = !isMedia;
+    if (!isMedia) return;
+    const playback = state.playback;
+    els.playbackModel.textContent = state.selectedModel.short;
+    els.playbackPause.textContent = playback?.desiredState === "paused" ? "Resume" : "Pause";
+    const connected = Boolean(playback?.device?.connected);
+    els.pairPlayer.hidden = connected;
+    els.playbackStatus.textContent = connected
+      ? "Playing on this iPhone · you can leave PolySwap"
+      : "The web player works here. Pair the iPhone player for background playback.";
+  }
+
+  async function sendPlaybackCommand(prompt) {
+    const command = String(prompt || "").trim();
+    if (!command) return;
+    if (state.demo) {
+      const track = demoMediaRequest(command);
+      if (track) {
+        await startJob({
+          sessionId: state.sessionId,
+          goal: command,
+          title: titleFor(command),
+          kind: "media",
+          modelId: state.selectedModel.id,
+          modelRoute: state.selectedModel.route,
+          privacyMode: state.selectedModel.privacy,
+          permissionProfile: "ask",
+          workspace: "Cloud workspace",
+          acceptanceCriteria: [],
+          estimatedUsd: 0,
+          budgetUsd: 0,
+          background: true
+        });
+        return;
+      }
+      const lowered = command.toLowerCase();
+      const lastCommand = /next|skip/.test(lowered) ? "next" : /previous|back/.test(lowered) ? "previous" : /stop/.test(lowered) ? "stop" : /resume|continue/.test(lowered) ? "resume" : "pause";
+      state.playback = {
+        ...(state.playback || {}),
+        revision: Number(state.playback?.revision || 0) + 1,
+        lastCommand,
+        desiredState: lastCommand === "pause" ? "paused" : lastCommand === "stop" ? "stopped" : "playing"
+      };
+      applyPlaybackToWebPlayers(state.playback);
+      renderPlaybackControls(state.activeJob);
+      return;
+    }
+    try {
+      const payload = await api("/v1/playback/commands", {
+        method: "POST",
+        body: JSON.stringify({ sessionId: state.sessionId, prompt: command, modelId: state.selectedModel.id })
+      });
+      state.playback = payload.playback || state.playback;
+      state.playbackRevision = Number(state.playback?.revision || state.playbackRevision);
+      if (payload.job) {
+        replaceJob(payload.job);
+        renderJobs();
+        await openJob(payload.job.id);
+      } else if (state.activeJob) {
+        renderPlaybackControls(state.activeJob);
+        applyPlaybackToWebPlayers(state.playback);
+      }
+    } catch (error) {
+      setRuntimeNote("Could not update the player · " + error.message, "error");
+    }
+  }
+
+  async function submitPlaybackCommand(event) {
+    event.preventDefault();
+    const prompt = els.playbackPrompt.value.trim();
+    if (!prompt) return;
+    els.playbackPrompt.value = "";
+    await sendPlaybackCommand(prompt);
+  }
+
+  async function createPlayerPairing() {
+    if (state.demo) {
+      setRuntimeNote("Pairing is available in the live private alpha.", "neutral");
+      return;
+    }
+    try {
+      const payload = await api("/v1/playback/pairings", {
+        method: "POST",
+        body: JSON.stringify({ sessionId: state.sessionId })
+      });
+      els.pairingCode.querySelector("strong").textContent = payload.code;
+      els.pairingCode.hidden = false;
+      els.pairPlayer.textContent = "Make a new code";
+    } catch (error) {
+      setRuntimeNote("Could not make a pairing code · " + error.message, "error");
+    }
   }
 
   function isYouTubeMedia(evidence) {
@@ -1125,6 +1259,15 @@
     els.notifyButton.addEventListener("click", requestNotifications);
     els.micButton.addEventListener("click", startDictation);
     els.searchButton.addEventListener("click", searchJobs);
+    els.playbackComposer.addEventListener("submit", submitPlaybackCommand);
+    els.playbackPause.addEventListener("click", () => sendPlaybackCommand(state.playback?.desiredState === "paused" ? "resume" : "pause"));
+    els.playbackNext.addEventListener("click", () => sendPlaybackCommand("next"));
+    els.playbackModel.addEventListener("click", () => {
+      state.swapJobId = null;
+      renderModels();
+      els.modelDialog.showModal();
+    });
+    els.pairPlayer.addEventListener("click", createPlayerPairing);
     els.modelClose.addEventListener("click", () => els.modelDialog.close());
     els.taskClose.addEventListener("click", () => els.taskDialog.close());
     els.taskDialog.addEventListener("close", () => {

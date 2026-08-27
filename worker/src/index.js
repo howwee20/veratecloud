@@ -208,6 +208,11 @@ async function secureEqual(left, right) {
   return difference === 0
 }
 
+async function sha256Hex(value) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(String(value || '')))
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('')
+}
+
 async function handleAccess(request, env, cors) {
   if (!env.ALPHA_ACCESS_CODE || !env.ALPHA_ACCESS_SECRET) {
     return json({ error: { message: 'Friends alpha access is not configured yet.' } }, 503, cors)
@@ -342,6 +347,7 @@ async function handleStatus(env, cors) {
     conversationReady: Boolean(env.OPENROUTER_API_KEY) && used < limit,
     openRouterReady: Boolean(env.OPENROUTER_API_KEY),
     cloudJobsReady: Boolean(env.AI && env.JOB_QUEUE),
+    playbackReady: Boolean(env.DB && env.JOB_QUEUE),
     browserReady: Boolean(env.BROWSER),
     pushReady: Boolean(env.VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY),
     accessConfigured: Boolean(env.ALPHA_ACCESS_CODE && env.ALPHA_ACCESS_SECRET),
@@ -859,6 +865,7 @@ async function runMediaCloudJob(env, job, runnerId) {
     const update = await env.DB.prepare("UPDATE cloud_jobs SET status = 'ready', runner_id = NULL, actual_usd = 0, result_summary = ?, receipt_status = 'playable_media', receipt_evidence = ?, error = NULL, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND runner_id = ? AND status = 'running'")
       .bind(summary, JSON.stringify([media]), job.id, runnerId).run()
     if (!update.meta?.changes) return { revoked: true }
+    await publishResolvedPlayback(env, job, request, media)
     await env.DB.prepare('INSERT INTO cloud_job_events (job_id, kind, label, detail, evidence) VALUES (?, ?, ?, ?, ?)')
       .bind(job.id, 'ready', 'Ready to play', `${media.title} loaded in PolySwap.`, media.url).run()
     await sendJobPush(env, job, 'Ready to play in PolySwap', `${media.title} · tap to open the player.`)
@@ -957,7 +964,7 @@ function parseJsonArray(value) {
 
 function mediaRequestForGoal(goal) {
   const normalized = String(goal || '').trim().replace(/\s+/g, ' ')
-  const match = normalized.match(/^(?:hey[, ]+)?(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:play|listen\s+to)\s+(.+?)(?:\s+(?:for\s+me|on\s+my\s+phone|on\s+iphone))?[.!?]*$/i)
+  const match = normalized.match(/^(?:hey[, ]+)?(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:(?:play|listen\s+to|put\s+on)\s+|(?:change|switch)(?:\s+(?:the|my))?(?:\s+(?:music|song|track|it))?(?:\s+to)?\s+)(.+?)(?:\s+(?:for\s+me|on\s+my\s+phone|on\s+iphone))?[.!?]*$/i)
   if (!match) return null
   const query = boundedText(match[1].trim().replace(/^(?:some|a)\s+/i, ''), 180)
   if (!query || /\b(chess|game|movie|video game|tic tac toe)\b/i.test(query)) return null
@@ -965,6 +972,44 @@ function mediaRequestForGoal(goal) {
     kind: 'music',
     title: boundedText(`Play ${query}`, 100, 'Play music'),
     query
+  }
+}
+
+function playbackIntentForPrompt(prompt) {
+  const track = mediaRequestForGoal(prompt)
+  if (track) return { kind: 'track', query: track.query, mediaRequest: track }
+  const normalized = String(prompt || '').trim().replace(/\s+/g, ' ').toLowerCase().replace(/[.!?]+$/, '')
+  if (/^(?:please\s+)?(?:pause|pause\s+(?:the\s+)?(?:music|song|track|playback))$/.test(normalized)) return { kind: 'pause' }
+  if (/^(?:please\s+)?(?:resume|continue|keep\s+playing)(?:\s+(?:the\s+)?(?:music|song|track|playback))?$/.test(normalized)) return { kind: 'resume' }
+  if (/^(?:please\s+)?(?:stop|stop\s+(?:the\s+)?(?:music|song|track|playback))$/.test(normalized)) return { kind: 'stop' }
+  if (/^(?:please\s+)?(?:next|skip|skip\s+(?:this|the\s+song|the\s+track)|play\s+the\s+next\s+(?:song|track))$/.test(normalized)) return { kind: 'next' }
+  if (/^(?:please\s+)?(?:previous|go\s+back|play\s+the\s+previous\s+(?:song|track))$/.test(normalized)) return { kind: 'previous' }
+  return null
+}
+
+async function inferPlaybackIntent(env, sessionId, prompt, profile) {
+  const instruction = `Translate this music-player request into one JSON object and nothing else. Allowed kinds: track, pause, resume, stop, next, previous. For track, include a concise search query. If the request is not about music playback, return {"kind":"unsupported"}. Request: ${JSON.stringify(prompt)}`
+  const pseudoJob = { session_id: sessionId, budget_usd: 0.02, id: 'playback_intent' }
+  let response
+  if (profile.route === 'cloudflare') {
+    if (!env.AI) return null
+    response = await env.AI.run(profile.runtimeModel, { prompt: instruction, max_tokens: 160, temperature: 0 })
+  } else if (profile.route === 'openrouter' && env.OPENROUTER_API_KEY) {
+    response = await openRouterCompletion(env, profile, pseudoJob, [{ role: 'user', content: instruction }], false, 160)
+  } else {
+    return null
+  }
+  const text = aiResponseText(response).replace(/^```(?:json)?\s*|\s*```$/gi, '').trim()
+  try {
+    const parsed = JSON.parse(text)
+    if (!['track', 'pause', 'resume', 'stop', 'next', 'previous'].includes(parsed?.kind)) return null
+    if (parsed.kind === 'track') {
+      const query = boundedText(parsed.query, 180)
+      return query ? { kind: 'track', query, mediaRequest: { kind: 'music', query, title: boundedText(`Play ${query}`, 100, 'Play music') } } : null
+    }
+    return { kind: parsed.kind }
+  } catch {
+    return null
   }
 }
 
@@ -1019,6 +1064,94 @@ async function resolveYouTubeMedia(env, request) {
     }
   }
   throw new Error('YouTube did not return an embeddable result for this request.')
+}
+
+function normalizePlaybackSession(row) {
+  if (!row) return null
+  let media = null
+  try { media = row.resolved_media ? JSON.parse(row.resolved_media) : null } catch { media = null }
+  const lastSeen = row.device_last_seen_at ? Date.parse(row.device_last_seen_at.replace(' ', 'T') + 'Z') : 0
+  return {
+    sessionId: row.session_id,
+    modelId: row.model_id,
+    desiredState: row.desired_state,
+    requestedQuery: row.requested_query || '',
+    media,
+    activeJobId: row.active_job_id || null,
+    revision: Number(row.revision || 0),
+    lastCommand: row.last_command_kind || (row.requested_query ? 'track' : row.desired_state),
+    device: row.active_device_id ? {
+      id: row.active_device_id,
+      status: row.device_status || 'connected',
+      connected: Boolean(lastSeen && Date.now() - lastSeen < 45_000),
+      lastSeenAt: row.device_last_seen_at || null,
+      appliedRevision: Number(row.last_applied_revision || 0)
+    } : null,
+    error: row.last_error || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  }
+}
+
+async function ensurePlaybackSession(env, sessionId, modelId = 'polyswap/auto') {
+  await env.DB.prepare("INSERT OR IGNORE INTO playback_sessions (session_id, model_id, desired_state) VALUES (?, ?, 'stopped')")
+    .bind(sessionId, modelId).run()
+  return env.DB.prepare('SELECT * FROM playback_sessions WHERE session_id = ?').bind(sessionId).first()
+}
+
+async function readPlaybackSession(env, sessionId) {
+  await ensurePlaybackSession(env, sessionId)
+  const row = await env.DB.prepare(`SELECT playback_sessions.*,
+    (SELECT kind FROM playback_commands WHERE playback_commands.session_id = playback_sessions.session_id AND playback_commands.revision = playback_sessions.revision ORDER BY id DESC LIMIT 1) AS last_command_kind
+    FROM playback_sessions WHERE session_id = ?`).bind(sessionId).first()
+  return normalizePlaybackSession(row)
+}
+
+async function publishResolvedPlayback(env, job, request, media) {
+  await env.DB.prepare(`INSERT INTO playback_sessions
+      (session_id, model_id, desired_state, requested_query, resolved_media, active_job_id, revision, last_error, updated_at)
+    VALUES (?, ?, 'playing', ?, ?, ?, 1, NULL, CURRENT_TIMESTAMP)
+    ON CONFLICT(session_id) DO UPDATE SET
+      model_id = excluded.model_id,
+      desired_state = 'playing',
+      requested_query = excluded.requested_query,
+      resolved_media = excluded.resolved_media,
+      active_job_id = excluded.active_job_id,
+      revision = playback_sessions.revision + 1,
+      last_error = NULL,
+      updated_at = CURRENT_TIMESTAMP`)
+    .bind(job.session_id, job.model_id, request.query, JSON.stringify(media), job.id).run()
+  const playback = await env.DB.prepare('SELECT * FROM playback_sessions WHERE session_id = ?').bind(job.session_id).first()
+  await env.DB.prepare("INSERT INTO playback_commands (session_id, revision, kind, prompt, query, model_id, status) VALUES (?, ?, 'track', ?, ?, ?, 'ready')")
+    .bind(job.session_id, Number(playback?.revision || 0), job.goal, request.query, job.model_id).run()
+}
+
+async function createMediaCloudJob(env, ctx, sessionId, goal, modelId = 'polyswap/auto', requestOverride = null) {
+  const request = requestOverride || mediaRequestForGoal(goal)
+  if (!request) throw new Error('Tell PolySwap what you want to play.')
+  const profile = await resolveModelProfile(env, boundedText(modelId, 200, 'polyswap/auto')).catch(() => null)
+  if (!profile || !profile.available) throw new Error(profile?.unavailableReason || 'That intelligence is not available.')
+  const id = 'job_' + crypto.randomUUID()
+  await env.DB.batch([
+    env.DB.prepare('INSERT OR IGNORE INTO sessions (id) VALUES (?)').bind(sessionId),
+    env.DB.prepare('UPDATE sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?').bind(sessionId),
+    env.DB.prepare("INSERT INTO cloud_jobs (id, session_id, title, goal, kind, status, model_id, model_route, privacy_mode, permission_profile, workspace, acceptance_criteria, estimated_usd, budget_usd, actual_usd, background) VALUES (?, ?, ?, ?, 'media', 'queued', ?, ?, ?, 'ask', 'PolySwap Player', ?, 0, 0, 0, 1)")
+      .bind(id, sessionId, request.title, goal, profile.id, profile.route, profile.privacy, JSON.stringify(['Resolve the requested track', 'Publish it to the durable playback session'])),
+    env.DB.prepare('INSERT INTO cloud_job_events (job_id, kind, label, detail) VALUES (?, ?, ?, ?)')
+      .bind(id, 'queued', 'Waiting to start', 'PolySwap will find something playable.'),
+    env.DB.prepare("INSERT OR IGNORE INTO playback_sessions (session_id, model_id, desired_state) VALUES (?, ?, 'stopped')").bind(sessionId, profile.id),
+    env.DB.prepare('UPDATE playback_sessions SET model_id = ?, requested_query = ?, active_job_id = ?, last_error = NULL, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?')
+      .bind(profile.id, request.query, id, sessionId),
+    env.DB.prepare("INSERT INTO playback_commands (session_id, kind, prompt, query, model_id, status) VALUES (?, 'track', ?, ?, ?, 'resolving')")
+      .bind(sessionId, goal, request.query, profile.id)
+  ])
+  try {
+    await env.JOB_QUEUE.send({ jobId: id })
+  } catch {
+    ctx.waitUntil(env.DB.prepare('INSERT INTO cloud_job_events (job_id, kind, label, detail) VALUES (?, ?, ?, ?)')
+      .bind(id, 'queue_retry', 'Waiting to retry', 'PolySwap will retry this media job shortly.').run())
+  }
+  return readCloudJob(env, id, sessionId)
 }
 
 function normalizeCloudJob(row, events = [], approvals = []) {
@@ -1101,16 +1234,18 @@ async function handleCloudQuote(request, env, cors) {
   if (!goal) return json({ error: { message: 'Describe the work you want PolySwap to complete.' } }, 400, cors)
   const mediaRequest = mediaRequestForGoal(goal)
   if (mediaRequest) {
+    const profile = await resolveModelProfile(env, boundedText(body.modelId, 200, 'polyswap/auto')).catch(() => null)
+    if (!profile || !profile.available) return json({ error: { message: profile?.unavailableReason || 'That intelligence is not available.' } }, 409, cors)
     return json({
       quote: {
-        modelId: 'polyswap/media-agent',
-        modelLabel: 'PolySwap Media',
-        provider: 'PolySwap Cloud',
-        privacy: 'Playable result stored in this job',
+        modelId: profile.id,
+        modelLabel: profile.label,
+        provider: profile.provider,
+        privacy: 'The command is stored in your durable playback session',
         estimatedUsd: 0,
         maximumUsd: 0,
-        capability: 'Finds a YouTube result and loads it inside PolySwap',
-        externalActions: 'Playback stays in PolySwap',
+        capability: 'Resolves a track and updates the PolySwap player',
+        externalActions: 'The paired iPhone player follows the cloud session',
         expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString()
       }
     }, 200, cors)
@@ -1153,6 +1288,99 @@ async function handlePushSubscription(request, env, cors) {
   return json({ ok: true }, 201, cors)
 }
 
+async function handleGetPlayback(request, env, cors, url) {
+  const sessionId = url.searchParams.get('sessionId') || ''
+  if (!(await sessionAuthorized(request, env, sessionId))) {
+    return json({ error: { message: 'Friends alpha access is required.' }, code: 'ACCESS_REQUIRED' }, 401, cors)
+  }
+  return json({ playback: await readPlaybackSession(env, sessionId) }, 200, cors)
+}
+
+async function handlePlaybackCommand(request, env, ctx, cors) {
+  const body = await request.json().catch(() => null)
+  if (!body || !(await sessionAuthorized(request, env, body.sessionId))) {
+    return json({ error: { message: 'Friends alpha access is required.' }, code: 'ACCESS_REQUIRED' }, 401, cors)
+  }
+  const prompt = boundedText(body.prompt, 1000)
+  const modelId = boundedText(body.modelId, 200, 'polyswap/auto')
+  const profile = await resolveModelProfile(env, modelId).catch(() => null)
+  if (!profile || !profile.available) return json({ error: { message: profile?.unavailableReason || 'That intelligence is not available.' } }, 409, cors)
+  const intent = playbackIntentForPrompt(prompt) || await inferPlaybackIntent(env, body.sessionId, prompt, profile).catch(() => null)
+  if (!intent) return json({ error: { message: 'Try “play Future,” “pause,” “next,” or “stop.”' } }, 400, cors)
+  if (intent.kind === 'track') {
+    try {
+      const job = await createMediaCloudJob(env, ctx, body.sessionId, prompt, modelId, intent.mediaRequest)
+      return json({ job, playback: await readPlaybackSession(env, body.sessionId) }, 202, cors)
+    } catch (error) {
+      return json({ error: { message: boundedText(error?.message, 500, 'PolySwap could not change the track.') } }, 409, cors)
+    }
+  }
+  await ensurePlaybackSession(env, body.sessionId, profile.id)
+  const desiredState = intent.kind === 'pause' ? 'paused' : intent.kind === 'stop' ? 'stopped' : 'playing'
+  await env.DB.prepare('UPDATE playback_sessions SET model_id = ?, desired_state = ?, revision = revision + 1, last_error = NULL, updated_at = CURRENT_TIMESTAMP WHERE session_id = ?')
+    .bind(profile.id, desiredState, body.sessionId).run()
+  const current = await env.DB.prepare('SELECT revision FROM playback_sessions WHERE session_id = ?').bind(body.sessionId).first()
+  await env.DB.prepare("INSERT INTO playback_commands (session_id, revision, kind, prompt, model_id, status) VALUES (?, ?, ?, ?, ?, 'ready')")
+    .bind(body.sessionId, Number(current?.revision || 0), intent.kind, prompt, profile.id).run()
+  return json({ playback: await readPlaybackSession(env, body.sessionId) }, 202, cors)
+}
+
+async function handlePlaybackHeartbeat(request, env, cors) {
+  const body = await request.json().catch(() => null)
+  if (!body || !(await sessionAuthorized(request, env, body.sessionId)) || !validClientId(body.deviceId, 'device')) {
+    return json({ error: { message: 'A paired iPhone is required.' }, code: 'ACCESS_REQUIRED' }, 401, cors)
+  }
+  const appliedRevision = Math.max(0, Math.floor(Number(body.appliedRevision || 0)))
+  const deviceStatus = boundedText(body.status, 60, 'connected')
+  const deviceError = boundedText(body.error, 500)
+  await ensurePlaybackSession(env, body.sessionId)
+  await env.DB.batch([
+    env.DB.prepare('UPDATE playback_sessions SET active_device_id = ?, device_status = ?, device_last_seen_at = CURRENT_TIMESTAMP, last_applied_revision = MAX(last_applied_revision, ?), last_error = ?, updated_at = CASE WHEN ? != \'\' THEN CURRENT_TIMESTAMP ELSE updated_at END WHERE session_id = ?')
+      .bind(body.deviceId, deviceStatus, appliedRevision, deviceError || null, deviceError, body.sessionId),
+    env.DB.prepare("UPDATE playback_commands SET status = 'applied', applied_at = CURRENT_TIMESTAMP WHERE session_id = ? AND revision IS NOT NULL AND revision <= ? AND status = 'ready'")
+      .bind(body.sessionId, appliedRevision)
+  ])
+  return json({ playback: await readPlaybackSession(env, body.sessionId) }, 200, cors)
+}
+
+async function handleCreatePlaybackPairing(request, env, cors) {
+  const body = await request.json().catch(() => null)
+  if (!body || !(await sessionAuthorized(request, env, body.sessionId))) {
+    return json({ error: { message: 'Friends alpha access is required.' }, code: 'ACCESS_REQUIRED' }, 401, cors)
+  }
+  const random = new Uint32Array(1)
+  crypto.getRandomValues(random)
+  const code = String(random[0] % 1_000_000).padStart(6, '0')
+  const hash = await sha256Hex(code)
+  const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ')
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM playback_pairings WHERE session_id = ? OR expires_at <= CURRENT_TIMESTAMP').bind(body.sessionId),
+    env.DB.prepare('INSERT INTO playback_pairings (code_hash, session_id, expires_at) VALUES (?, ?, ?)').bind(hash, body.sessionId, expiresAt)
+  ])
+  return json({ code, expiresAt: expiresAt.replace(' ', 'T') + 'Z' }, 201, cors)
+}
+
+async function handleRedeemPlaybackPairing(request, env, cors) {
+  const body = await request.json().catch(() => null)
+  const code = boundedText(body?.code, 12).replace(/\D/g, '')
+  const deviceId = boundedText(body?.deviceId, 96)
+  if (!/^\d{6}$/.test(code) || !validClientId(deviceId, 'device')) {
+    return json({ error: { message: 'Enter the six-digit code from PolySwap.' } }, 400, cors)
+  }
+  const hash = await sha256Hex(code)
+  const pairing = await env.DB.prepare('SELECT session_id FROM playback_pairings WHERE code_hash = ? AND used_at IS NULL AND expires_at > CURRENT_TIMESTAMP').bind(hash).first()
+  if (!pairing) return json({ error: { message: 'That pairing code expired. Make a new one in PolySwap.' } }, 401, cors)
+  const claimed = await env.DB.prepare('UPDATE playback_pairings SET used_at = CURRENT_TIMESTAMP, device_id = ? WHERE code_hash = ? AND used_at IS NULL').bind(deviceId, hash).run()
+  if (!claimed.meta?.changes) return json({ error: { message: 'That pairing code was already used.' } }, 409, cors)
+  await ensurePlaybackSession(env, pairing.session_id)
+  return json({
+    sessionId: pairing.session_id,
+    accessToken: await issueAccessToken(env, pairing.session_id),
+    expiresIn: ACCESS_TTL_SECONDS,
+    playback: await readPlaybackSession(env, pairing.session_id)
+  }, 200, cors)
+}
+
 async function handleCreateJob(request, env, ctx, cors) {
   if (!env.DB) return json({ error: { message: 'PolySwap Cloud storage is not connected yet.' } }, 503, cors)
   const body = await request.json().catch(() => null)
@@ -1164,21 +1392,12 @@ async function handleCreateJob(request, env, ctx, cors) {
   const id = 'job_' + crypto.randomUUID()
   const mediaRequest = mediaRequestForGoal(goal)
   if (mediaRequest) {
-    await env.DB.batch([
-      env.DB.prepare('INSERT OR IGNORE INTO sessions (id) VALUES (?)').bind(body.sessionId),
-      env.DB.prepare('UPDATE sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?').bind(body.sessionId),
-      env.DB.prepare("INSERT INTO cloud_jobs (id, session_id, title, goal, kind, status, model_id, model_route, privacy_mode, permission_profile, workspace, acceptance_criteria, estimated_usd, budget_usd, actual_usd, background) VALUES (?, ?, ?, ?, 'media', 'queued', 'polyswap/media-agent', 'polyswap', 'standard', 'ask', 'PolySwap Media', ?, 0, 0, 0, 1)")
-        .bind(id, body.sessionId, mediaRequest.title, goal, JSON.stringify(['Find a playable YouTube result', 'Load the official player inside PolySwap'])),
-      env.DB.prepare('INSERT INTO cloud_job_events (job_id, kind, label, detail) VALUES (?, ?, ?, ?)')
-        .bind(id, 'queued', 'Waiting to start', 'PolySwap will find something playable.')
-    ])
     try {
-      await env.JOB_QUEUE.send({ jobId: id })
-    } catch {
-      ctx.waitUntil(env.DB.prepare('INSERT INTO cloud_job_events (job_id, kind, label, detail) VALUES (?, ?, ?, ?)')
-        .bind(id, 'queue_retry', 'Waiting to retry', 'PolySwap will retry this media job shortly.').run())
+      const job = await createMediaCloudJob(env, ctx, body.sessionId, goal, body.modelId)
+      return json({ job }, 201, cors)
+    } catch (error) {
+      return json({ error: { message: boundedText(error?.message, 500, 'PolySwap could not start that player command.') } }, 409, cors)
     }
-    return json({ job: await readCloudJob(env, id, body.sessionId) }, 201, cors)
   }
   const title = boundedText(body.title, 100, goal.replace(/\s+/g, ' ').slice(0, 76)) || 'New PolySwap job'
   const kind = CLOUD_JOB_KINDS.has(body.kind) ? body.kind : 'work'
@@ -1431,6 +1650,11 @@ export default {
       return env.VAPID_PUBLIC_KEY ? json({ publicKey: env.VAPID_PUBLIC_KEY }, 200, cors) : json({ error: { message: 'Push is not configured.' } }, 503, cors)
     }
     if (request.method === 'POST' && url.pathname === '/v1/push/subscriptions') return handlePushSubscription(request, env, cors)
+    if (request.method === 'GET' && url.pathname === '/v1/playback') return handleGetPlayback(request, env, cors, url)
+    if (request.method === 'POST' && url.pathname === '/v1/playback/commands') return handlePlaybackCommand(request, env, ctx, cors)
+    if (request.method === 'POST' && url.pathname === '/v1/playback/heartbeat') return handlePlaybackHeartbeat(request, env, cors)
+    if (request.method === 'POST' && url.pathname === '/v1/playback/pairings') return handleCreatePlaybackPairing(request, env, cors)
+    if (request.method === 'POST' && url.pathname === '/v1/playback/pairings/redeem') return handleRedeemPlaybackPairing(request, env, cors)
     if (request.method === 'GET' && url.pathname === '/v1/models') {
       const response = await fetch(MODEL_CATALOG_URL, { headers: { Accept: 'application/json' }, cf: { cacheTtl: 300, cacheEverything: true } })
       return new Response(response.body, { status: response.status, headers: { ...cors, 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'public, max-age=300' } })

@@ -13,8 +13,8 @@
   <link rel="icon" type="image/png" href="assets/polyswap-mark.png?v=2">
   <link rel="apple-touch-icon" href="assets/polyswap-mark.png?v=2">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="mobile.css?v=mobile-cloud-5">
-  <script src="mobile.js?v=mobile-cloud-5" defer></script>
+  <link rel="stylesheet" href="mobile.css?v=mobile-cloud-6">
+  <script src="mobile.js?v=mobile-cloud-6" defer></script>
 </head>
 <body>
   <header class="mobile-header">
@@ -103,6 +103,20 @@
           <h3 id="receiptTitle">Completed</h3>
           <p id="receiptSummary"></p>
           <ul id="receiptEvidence"></ul>
+        </section>
+        <section class="playback-controls" id="playbackControls" hidden>
+          <form id="playbackComposer">
+            <input id="playbackPrompt" maxlength="1000" placeholder="Change the music…" aria-label="Change the music">
+            <button type="submit" aria-label="Send player command">↑</button>
+          </form>
+          <div class="playback-buttons">
+            <button id="playbackModel" type="button">Auto</button>
+            <button id="playbackPause" type="button">Pause</button>
+            <button id="playbackNext" type="button">Next</button>
+          </div>
+          <button class="pair-player" id="pairPlayer" type="button">Keep playing after I leave</button>
+          <p class="pairing-code" id="pairingCode" hidden>Enter <strong></strong> in the PolySwap iPhone player.</p>
+          <p class="playback-status" id="playbackStatus"></p>
         </section>
         <section class="timeline-section">
           <h3>Activity</h3>

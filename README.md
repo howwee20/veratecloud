@@ -35,6 +35,10 @@ The mobile cloud alpha includes:
 - Home-screen Web Push subscriptions for closed-app completion alerts
 - A zero-cost media runtime that resolves music requests in the cloud and loads
   the official YouTube player directly inside the mobile Job Room
+- A durable, versioned playback session with pause, resume, stop, skip, track
+  changes, device heartbeats, and single-use iPhone pairing codes
+- A compiled SwiftUI/MusicKit iPhone client in `ios/PolySwapMobile` that follows
+  the cloud session and declares background audio playback
 
 Open `https://polyswap.ai/mobile.html` on a phone for the private cloud alpha.
 For local UI work, serve this directory on port 4173 and open
@@ -53,10 +57,14 @@ non-executing demo mode.
 - Consequential work remains deliberately gated. The built-in runner will not
   submit forms, send email, call people, purchase items, or change accounts. It
   may prepare a draft and returns `completed_unverified` instead of claiming
-  that an outside action happened. Music requests are separate media jobs: the
-  cloud resolver finds a playable YouTube result and the PWA embeds the official
-  player. PolySwap attempts autoplay; iOS can still require one tap on the
-  embedded player before unmuted playback begins.
+  that an outside action happened. Music requests are separate media jobs. The
+  cloud resolver publishes a durable playback revision, the PWA embeds the
+  official YouTube player for instant web playback, and the paired iPhone client
+  resolves the same request through MusicKit for background playback. iOS can
+  still require one tap before unmuted web playback begins.
+- Physical iPhone playback requires signing the native target with a registered
+  App ID whose MusicKit app service is enabled, then installing it directly or
+  through TestFlight. The website and cloud controller deploy independently.
 - Server-side quotes use the selected Cloudflare model's token rates and a
   bounded browser allowance. The job stores both the estimate and maximum;
   actual metered model and browser usage is written to its receipt.

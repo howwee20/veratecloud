@@ -499,6 +499,15 @@ dialog::backdrop { background: rgba(22, 22, 26, .32); backdrop-filter: blur(3px)
   background: #fff;
   list-style: none;
 }
+.playback-controls { display: grid; gap: 10px; margin: 14px 0 22px; }
+.playback-controls form { display: flex; gap: 8px; padding: 7px 7px 7px 13px; border: 1px solid #deded9; border-radius: 14px; background: #fff; }
+.playback-controls input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: #252529; font: inherit; font-size: 11px; }
+.playback-controls form button { width: 34px; height: 34px; border: 0; border-radius: 50%; background: #29292e; color: #fff; font-size: 16px; }
+.playback-buttons { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 7px; }
+.playback-buttons button, .pair-player { min-height: 38px; border: 0; border-radius: 10px; background: #efefec; color: #343439; font-size: 10px; font-weight: 700; }
+.pair-player { width: 100%; background: #29292e; color: #fff; }
+.pairing-code, .playback-status { margin: 0; color: #77777c; font-size: 9px; line-height: 1.5; text-align: center; }
+.pairing-code strong { color: #252529; font-size: 17px; letter-spacing: .16em; }
 .media-player-shell {
   position: relative;
   width: 100%;
