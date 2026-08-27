@@ -43,6 +43,7 @@
     }
   ];
   let models = FALLBACK_MODELS;
+  let youtubeApiPromise = null;
   const DEFAULT_BUDGET_USD = 0.25;
 
   const TERMINAL = new Set(["completed", "completed_unverified", "failed", "cancelled"]);
@@ -69,6 +70,7 @@
     pollTimer: null,
     previousStatuses: new Map(),
     serviceWorker: null,
+    mediaPlayers: [],
     search: ""
   };
 
@@ -159,6 +161,7 @@
       waiting_for_human: "Needs you",
       waiting_for_approval: "Needs you",
       blocked: "Blocked",
+      ready: "Ready",
       completed: "Done",
       completed_unverified: "Review result",
       failed: "Failed",
@@ -182,20 +185,29 @@
     return normalized.slice(0, 61).trimEnd() + "…";
   }
 
-  function demoPhoneAction(goal) {
+  function demoMediaRequest(goal) {
     const match = goal.trim().replace(/\s+/g, " ").match(/^(?:hey[, ]+)?(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:play|listen\s+to)\s+(.+?)(?:\s+(?:for\s+me|on\s+my\s+phone|on\s+iphone))?[.!?]*$/i);
     if (!match || /\b(chess|game|movie|video game|tic tac toe)\b/i.test(match[1])) return null;
     const query = match[1].trim().replace(/^(?:some|a)\s+/i, "").slice(0, 180);
     if (!query) return null;
-    const encoded = encodeURIComponent(query);
+    const isDrake = /\bdrake\b/i.test(query);
     return {
       title: "Play " + query,
-      summary: "Tap a music app to continue with " + query + " on this iPhone.",
-      actions: [
-        { label: "Open Apple Music", url: "https://music.apple.com/us/search?term=" + encoded },
-        { label: "Open YouTube", url: "https://www.youtube.com/results?search_query=" + encoded },
-        { label: "Open Spotify", url: "https://open.spotify.com/search/" + encoded }
-      ]
+      summary: (isDrake ? "Drake - Pipe Down (Audio)" : "YouTube player preview") + " is ready to play inside PolySwap.",
+      media: {
+        type: "media",
+        provider: "youtube",
+        videoId: isDrake ? "ZIu-V_xEehs" : "M7lc1UVf-VE",
+        title: isDrake ? "Drake - Pipe Down (Audio)" : "YouTube player preview",
+        author: isDrake ? "DrakeVEVO" : "YouTube Developers",
+        url: "https://www.youtube.com/watch?v=" + (isDrake ? "ZIu-V_xEehs" : "M7lc1UVf-VE"),
+        candidates: isDrake ? [
+          { videoId: "ZIu-V_xEehs", title: "Drake - Pipe Down (Audio)", author: "DrakeVEVO", url: "https://www.youtube.com/watch?v=ZIu-V_xEehs" },
+          { videoId: "uxpDa-c-4Mc", title: "Drake - Hotline Bling", author: "DrakeVEVO", url: "https://www.youtube.com/watch?v=uxpDa-c-4Mc" }
+        ] : [
+          { videoId: "M7lc1UVf-VE", title: "YouTube player preview", author: "YouTube Developers", url: "https://www.youtube.com/watch?v=M7lc1UVf-VE" }
+        ]
+      }
     };
   }
 
@@ -401,6 +413,10 @@
       renderJobs();
       updateNotificationPrompt();
       if (!quiet && state.demo) setRuntimeNote("Preview mode · no work is sent", "preview");
+      const activeUpdate = state.activeJob && state.jobs.find((job) => job.id === state.activeJob.id);
+      if (activeUpdate && activeUpdate.updatedAt !== state.activeJob.updatedAt) {
+        await openJob(activeUpdate.id, { preserveHash: true });
+      }
       openJobFromHash();
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
@@ -415,8 +431,10 @@
   function notifyTransitions(nextJobs) {
     nextJobs.forEach((job) => {
       const previous = state.previousStatuses.get(job.id);
-      if (previous && previous !== job.status && (ATTENTION.has(job.status) || TERMINAL.has(job.status))) {
-        const body = ATTENTION.has(job.status)
+      if (previous && previous !== job.status && (job.status === "ready" || ATTENTION.has(job.status) || TERMINAL.has(job.status))) {
+        const body = job.status === "ready"
+          ? "Your player is ready inside PolySwap."
+          : ATTENTION.has(job.status)
           ? "PolySwap needs your approval to continue."
           : job.status === "completed" ? "Your job is done. Tap to see the receipt." : "Your job stopped. Tap for details.";
         showNotification(job.title, body, job.id);
@@ -480,7 +498,9 @@
     node.dataset.jobId = job.id;
     node.dataset.status = job.status;
     node.querySelector(".task-copy strong").textContent = job.title || titleFor(job.goal || "Untitled job");
-    node.querySelector(".task-copy small").textContent = job.kind === "phone"
+    node.querySelector(".task-copy small").textContent = job.kind === "media" && job.status === "ready"
+      ? "Tap to play inside PolySwap"
+      : job.kind === "phone"
       ? "Tap to choose where it opens"
       : plainJobUpdate(job) + " · " + model.short;
     node.querySelector(".task-meta em").textContent = job.kind === "phone" && job.status === "waiting_for_human" ? "Ready" : statusLabel(job.status);
@@ -492,6 +512,7 @@
   function plainJobUpdate(job) {
     if (job.status === "queued") return "Waiting to start";
     if (job.status === "running" || job.status === "background" || job.status === "recovering") return "Working";
+    if (job.status === "ready") return "Ready to play";
     if (ATTENTION.has(job.status)) return "Waiting for you";
     if (job.status === "completed") return "Done";
     if (job.status === "completed_unverified") return "Ready to review";
@@ -551,32 +572,32 @@
     let job;
     if (state.demo) {
       const now = new Date().toISOString();
-      const phoneAction = demoPhoneAction(payload.goal);
+      const mediaRequest = demoMediaRequest(payload.goal);
       job = {
         id: "demo-" + Date.now(),
         ...payload,
-        ...(phoneAction ? {
-          title: phoneAction.title,
-          kind: "phone",
-          modelId: "polyswap/iphone",
-          modelRoute: "iphone",
-          privacyMode: "device",
+        ...(mediaRequest ? {
+          title: mediaRequest.title,
+          kind: "media",
+          modelId: "polyswap/media-agent",
+          modelRoute: "polyswap",
+          privacyMode: "standard",
           estimatedUsd: 0,
           budgetUsd: 0,
-          resultSummary: phoneAction.summary,
-          receipt: { status: "phone_handoff", summary: phoneAction.summary, evidence: phoneAction.actions, actualUsd: 0 }
+          resultSummary: mediaRequest.summary,
+          receipt: { status: "playable_media", summary: mediaRequest.summary, evidence: [mediaRequest.media], actualUsd: 0 }
         } : {}),
-        status: phoneAction ? "waiting_for_human" : "queued",
+        status: mediaRequest ? "ready" : "queued",
         actualUsd: 0,
-        currentInstruction: phoneAction ? "Choose a music app to continue." : "Waiting to start",
+        currentInstruction: mediaRequest ? "Ready to play inside PolySwap." : "Waiting to start",
         createdAt: now,
         updatedAt: now,
-        events: [{ type: phoneAction ? "ready" : "created", message: phoneAction ? "Choose a music app to continue." : "Preview job created. No work was sent.", createdAt: now }],
+        events: [{ type: mediaRequest ? "ready" : "created", message: mediaRequest ? "The player is ready inside PolySwap." : "Preview job created. No work was sent.", createdAt: now }],
         approvals: []
       };
       state.jobs.unshift(job);
       persistDemo();
-      if (!phoneAction) window.setTimeout(() => advanceDemo(job.id), 1400);
+      if (!mediaRequest) window.setTimeout(() => advanceDemo(job.id), 1400);
     } else {
       const response = await api("/v1/jobs", { method: "POST", body: JSON.stringify(payload) });
       job = response.job;
@@ -653,9 +674,10 @@
   }
 
   function renderJobDetail(job) {
-    const model = findModel(job.modelId) || { name: job.modelId, provider: job.modelRoute };
     els.taskDetailId.textContent = "Job";
-    els.taskDetailStatus.textContent = job.kind === "phone" && job.status === "waiting_for_human"
+    els.taskDetailStatus.textContent = job.kind === "media" && job.status === "ready"
+      ? "Ready in PolySwap"
+      : job.kind === "phone" && job.status === "waiting_for_human"
       ? "Ready on this iPhone"
       : statusLabel(job.status) + (Number(job.actualUsd) ? " · " + money(job.actualUsd) : "");
     els.taskDetailTitle.textContent = job.title;
@@ -675,9 +697,10 @@
     const receiptSummary = job.receiptSummary || job.receipt?.summary || "";
     const hasReceipt = Boolean(job.resultSummary || receiptSummary || receiptEvidence.length);
     els.receiptCard.hidden = !hasReceipt;
+    destroyMediaPlayers();
     els.receiptEvidence.replaceChildren();
     if (hasReceipt) {
-      els.receiptTitle.textContent = job.kind === "phone" ? "Choose where to play it" : job.status === "completed" ? "Done" : "Result";
+      els.receiptTitle.textContent = job.kind === "media" ? "Now playing" : job.kind === "phone" ? "Choose where to play it" : job.status === "completed" ? "Done" : "Result";
       els.receiptSummary.textContent = job.resultSummary || receiptSummary || "PolySwap returned a result.";
       if (receiptSummary && job.resultSummary && receiptSummary !== job.resultSummary) {
         const receipt = document.createElement("li");
@@ -686,7 +709,9 @@
       }
       receiptEvidence.forEach((evidence) => {
         const item = document.createElement("li");
-        if (typeof evidence === "object" && evidence.url && evidence.url !== "#") {
+        if (isYouTubeMedia(evidence)) {
+          renderYouTubePlayer(item, evidence);
+        } else if (typeof evidence === "object" && evidence.url && evidence.url !== "#") {
           const link = document.createElement("a");
           link.href = evidence.url;
           link.target = "_blank";
@@ -706,7 +731,7 @@
 
     renderTimeline(job);
     const terminal = TERMINAL.has(job.status);
-    els.taskActions.hidden = job.kind === "phone";
+    els.taskActions.hidden = job.kind === "phone" || job.kind === "media";
     els.swapButton.textContent = terminal ? "Run again" : "Change model";
     els.swapButton.onclick = terminal ? () => duplicateJob(job) : () => {
       state.swapJobId = job.id;
@@ -718,6 +743,117 @@
     els.pauseButton.onclick = () => actOnJob(job, job.status === "paused" ? "resume" : "pause");
     els.cancelButton.disabled = terminal;
     els.cancelButton.onclick = () => actOnJob(job, "cancel");
+  }
+
+  function isYouTubeMedia(evidence) {
+    return Boolean(evidence && typeof evidence === "object" && evidence.type === "media" && evidence.provider === "youtube" && mediaCandidates(evidence).length);
+  }
+
+  function renderYouTubePlayer(item, media) {
+    item.className = "media-result";
+    const candidates = mediaCandidates(media);
+    const shell = document.createElement("div");
+    shell.className = "media-player-shell";
+    const target = document.createElement("div");
+    target.id = "youtube-player-" + Math.random().toString(36).slice(2);
+    const play = document.createElement("button");
+    play.type = "button";
+    play.className = "media-play";
+    play.textContent = "Play";
+    play.hidden = true;
+    const unavailable = document.createElement("p");
+    unavailable.className = "media-unavailable";
+    unavailable.textContent = "PolySwap could not load this result. Try the job again.";
+    unavailable.hidden = true;
+    shell.append(target, play, unavailable);
+    const caption = document.createElement("div");
+    caption.className = "media-caption";
+    const title = document.createElement("strong");
+    const author = document.createElement("span");
+    caption.append(title, author);
+    item.append(shell, caption);
+
+    let candidateIndex = 0;
+    let player = null;
+    const showCandidate = () => {
+      const candidate = candidates[candidateIndex];
+      title.textContent = candidate?.title || "YouTube";
+      author.textContent = candidate?.author || "YouTube";
+    };
+    const tryNext = () => {
+      candidateIndex += 1;
+      if (!player || candidateIndex >= candidates.length) {
+        play.hidden = true;
+        unavailable.hidden = false;
+        return;
+      }
+      unavailable.hidden = true;
+      play.hidden = true;
+      showCandidate();
+      player.loadVideoById(candidates[candidateIndex].videoId);
+    };
+    showCandidate();
+    ensureYouTubeApi().then((YT) => {
+      player = new YT.Player(target.id, {
+        width: "100%",
+        height: "100%",
+        videoId: candidates[0].videoId,
+        playerVars: {
+          autoplay: 1,
+          playsinline: 1,
+          controls: 1,
+          rel: 0,
+          origin: window.location.origin
+        },
+        events: {
+          onReady: (event) => event.target.playVideo(),
+          onAutoplayBlocked: () => { play.hidden = false; },
+          onStateChange: (event) => {
+            if (event.data === YT.PlayerState.PLAYING) play.hidden = true;
+          },
+          onError: tryNext
+        }
+      });
+      state.mediaPlayers.push(player);
+      play.addEventListener("click", () => player?.playVideo());
+    }).catch(() => {
+      unavailable.hidden = false;
+    });
+  }
+
+  function mediaCandidates(media) {
+    const raw = Array.isArray(media?.candidates) && media.candidates.length ? media.candidates : [media];
+    return raw.filter((candidate) => candidate && /^[A-Za-z0-9_-]{11}$/.test(candidate.videoId || "")).slice(0, 6);
+  }
+
+  function ensureYouTubeApi() {
+    if (window.YT?.Player) return Promise.resolve(window.YT);
+    if (youtubeApiPromise) return youtubeApiPromise;
+    youtubeApiPromise = new Promise((resolve, reject) => {
+      const previous = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => {
+        if (typeof previous === "function") previous();
+        resolve(window.YT);
+      };
+      if (!document.querySelector('script[src="https://www.youtube.com/iframe_api"]')) {
+        const script = document.createElement("script");
+        script.src = "https://www.youtube.com/iframe_api";
+        script.async = true;
+        script.onerror = () => reject(new Error("YouTube player failed to load."));
+        document.head.appendChild(script);
+      }
+      window.setTimeout(() => {
+        if (!window.YT?.Player) reject(new Error("YouTube player timed out."));
+      }, 10000);
+    });
+    return youtubeApiPromise;
+  }
+
+  function destroyMediaPlayers() {
+    state.mediaPlayers.forEach((player) => {
+      try { player.destroy(); } catch (_) {}
+    });
+    state.mediaPlayers = [];
   }
 
   function markPhoneActionOpened(job, target) {
@@ -992,6 +1128,7 @@
     els.modelClose.addEventListener("click", () => els.modelDialog.close());
     els.taskClose.addEventListener("click", () => els.taskDialog.close());
     els.taskDialog.addEventListener("close", () => {
+      destroyMediaPlayers();
       state.activeJob = null;
       if (window.location.hash.startsWith("#job=")) history.replaceState(null, "", window.location.pathname + window.location.search);
     });

@@ -33,8 +33,8 @@ The mobile cloud alpha includes:
   receipt
 - Server-issued preflight quotes and enforced per-job cost ceilings
 - Home-screen Web Push subscriptions for closed-app completion alerts
-- Zero-cost iPhone handoffs for music requests, with Apple Music, YouTube, and
-  Spotify links recorded in the job
+- A zero-cost media runtime that resolves music requests in the cloud and loads
+  the official YouTube player directly inside the mobile Job Room
 
 Open `https://polyswap.ai/mobile.html` on a phone for the private cloud alpha.
 For local UI work, serve this directory on port 4173 and open
@@ -53,8 +53,10 @@ non-executing demo mode.
 - Consequential work remains deliberately gated. The built-in runner will not
   submit forms, send email, call people, purchase items, or change accounts. It
   may prepare a draft and returns `completed_unverified` instead of claiming
-  that an outside action happened. Music requests return real iPhone app links;
-  iOS still requires the user to tap a service before audio can begin.
+  that an outside action happened. Music requests are separate media jobs: the
+  cloud resolver finds a playable YouTube result and the PWA embeds the official
+  player. PolySwap attempts autoplay; iOS can still require one tap on the
+  embedded player before unmuted playback begins.
 - Server-side quotes use the selected Cloudflare model's token rates and a
   bounded browser allowance. The job stores both the estimate and maximum;
   actual metered model and browser usage is written to its receipt.

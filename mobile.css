@@ -297,9 +297,11 @@ button { color: inherit; }
 .task-row[data-status="waiting_for_human"] .task-state { background: var(--amber-soft); }
 .task-row[data-status="waiting_for_human"] .task-state i { background: var(--amber); }
 .task-row[data-status="completed"] .task-state,
-.task-row[data-status="completed_unverified"] .task-state { background: var(--green-soft); }
+.task-row[data-status="completed_unverified"] .task-state,
+.task-row[data-status="ready"] .task-state { background: var(--green-soft); }
 .task-row[data-status="completed"] .task-state i,
-.task-row[data-status="completed_unverified"] .task-state i { background: var(--green); }
+.task-row[data-status="completed_unverified"] .task-state i,
+.task-row[data-status="ready"] .task-state i { background: var(--green); }
 .task-row[data-status="failed"] .task-state,
 .task-row[data-status="cancelled"] .task-state { background: var(--red-soft); }
 .task-row[data-status="failed"] .task-state i,
@@ -489,6 +491,57 @@ dialog::backdrop { background: rgba(22, 22, 26, .32); backdrop-filter: blur(3px)
 .approval-card > div { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .receipt-card ul { display: grid; gap: 8px; margin: 13px 0 0; padding: 0; color: #4d6e5b; font-size: 10px; line-height: 1.6; list-style: none; }
 .receipt-card li:not(:has(.phone-action)) { margin-left: 17px; list-style: disc; }
+.receipt-card li.media-result {
+  overflow: hidden;
+  margin: 3px 0 0;
+  border: 1px solid rgba(43, 123, 89, .16);
+  border-radius: 13px;
+  background: #fff;
+  list-style: none;
+}
+.media-player-shell {
+  position: relative;
+  width: 100%;
+  min-height: 200px;
+  aspect-ratio: 16 / 9;
+  background: #111;
+}
+.media-player-shell > div:first-child,
+.media-player-shell iframe { display: block; width: 100%; height: 100%; min-height: 200px; border: 0; }
+.media-play {
+  position: absolute;
+  z-index: 2;
+  inset: 50% auto auto 50%;
+  min-width: 78px;
+  min-height: 44px;
+  padding: 0 18px;
+  transform: translate(-50%, -50%);
+  border: 0;
+  border-radius: 22px;
+  background: #fff;
+  color: #202024;
+  font-size: 11px;
+  font-weight: 750;
+  box-shadow: 0 7px 24px rgba(0,0,0,.25);
+}
+.media-unavailable {
+  position: absolute;
+  inset: 50% 18px auto;
+  margin: 0;
+  transform: translateY(-50%);
+  color: #fff;
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: center;
+}
+.media-caption {
+  display: grid;
+  gap: 3px;
+  padding: 12px 13px 13px;
+  color: #242a26;
+}
+.media-caption strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.media-caption span { color: #7c877f; font-size: 9px; }
 .phone-action {
   display: flex;
   align-items: center;
@@ -513,7 +566,7 @@ dialog::backdrop { background: rgba(22, 22, 26, .32); backdrop-filter: blur(3px)
 .timeline-item:not(:last-child)::before { position: absolute; top: 15px; bottom: -1px; left: 5px; width: 1px; background: var(--line); content: ""; }
 .timeline-item > i { position: relative; z-index: 1; width: 11px; height: 11px; margin-top: 3px; border: 3px solid #f5f5f2; border-radius: 50%; background: #929298; }
 .timeline-item.running > i, .timeline-item.progress > i { background: var(--purple); }
-.timeline-item.completed > i, .timeline-item.receipt > i { background: var(--green); }
+.timeline-item.completed > i, .timeline-item.receipt > i, .timeline-item.ready > i { background: var(--green); }
 .timeline-item.waiting_for_human > i, .timeline-item.approval > i { background: var(--amber); }
 .timeline-item span { display: grid; align-content: start; gap: 4px; }
 .timeline-item strong { font-size: 10px; }
