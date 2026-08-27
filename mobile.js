@@ -43,6 +43,7 @@
     }
   ];
   let models = FALLBACK_MODELS;
+  const DEFAULT_BUDGET_USD = 0.25;
 
   const TERMINAL = new Set(["completed", "completed_unverified", "failed", "cancelled"]);
   const ATTENTION = new Set(["waiting_for_human", "waiting_for_approval", "blocked"]);
@@ -68,8 +69,7 @@
     pollTimer: null,
     previousStatuses: new Map(),
     serviceWorker: null,
-    search: "",
-    pendingJob: null
+    search: ""
   };
 
   const els = {
@@ -80,10 +80,6 @@
     modelName: document.getElementById("modelLabel"),
     modelIcon: document.getElementById("modelIcon"),
     modelList: document.getElementById("modelOptions"),
-    accessSelect: document.getElementById("permissionSelect"),
-    budgetInput: document.getElementById("budgetInput"),
-    privacySummary: document.getElementById("privacySummary"),
-    runtimeNote: document.getElementById("runtimeNote"),
     taskList: document.getElementById("taskList"),
     tabs: Array.from(document.querySelectorAll("[data-filter]")),
     attentionCount: document.getElementById("attentionCount"),
@@ -94,24 +90,18 @@
     previewButton: document.getElementById("demoButton"),
     modelDialog: document.getElementById("modelDialog"),
     taskDialog: document.getElementById("taskDialog"),
-    quoteDialog: document.getElementById("quoteDialog"),
     taskTemplate: document.getElementById("taskTemplate"),
     statusBanner: document.getElementById("statusBanner"),
+    notificationPrompt: document.getElementById("notificationPrompt"),
     notifyButton: document.getElementById("notificationButton"),
     micButton: document.getElementById("voiceButton"),
     searchButton: document.getElementById("searchButton"),
-    accountButton: document.getElementById("accountButton"),
-    connectionDot: document.getElementById("connectionDot"),
     modelClose: document.getElementById("modelClose"),
     taskClose: document.getElementById("taskClose"),
     taskDetailId: document.getElementById("taskDetailId"),
     taskDetailStatus: document.getElementById("taskDetailStatus"),
     taskDetailTitle: document.getElementById("taskDetailTitle"),
     taskDetailGoal: document.getElementById("taskDetailGoal"),
-    taskDetailModel: document.getElementById("taskDetailModel"),
-    taskDetailPrivacy: document.getElementById("taskDetailPrivacy"),
-    taskDetailBudget: document.getElementById("taskDetailBudget"),
-    taskDetailAccess: document.getElementById("taskDetailAccess"),
     approvalCard: document.getElementById("approvalCard"),
     approvalTitle: document.getElementById("approvalTitle"),
     approvalDescription: document.getElementById("approvalDescription"),
@@ -126,15 +116,7 @@
     swapButton: document.getElementById("swapButton"),
     pauseButton: document.getElementById("pauseButton"),
     cancelButton: document.getElementById("cancelButton"),
-    quoteClose: document.getElementById("quoteClose"),
-    quoteCancel: document.getElementById("quoteCancel"),
-    quoteStart: document.getElementById("quoteStart"),
-    quoteGoal: document.getElementById("quoteGoal"),
-    quoteModel: document.getElementById("quoteModel"),
-    quoteRoute: document.getElementById("quoteRoute"),
-    quoteEstimate: document.getElementById("quoteEstimate"),
-    quoteMaximum: document.getElementById("quoteMaximum"),
-    quoteBoundary: document.getElementById("quoteBoundary")
+    taskActions: document.getElementById("taskActions")
   };
 
   localStorage.setItem(STORAGE.session, state.sessionId);
@@ -200,6 +182,23 @@
     return normalized.slice(0, 61).trimEnd() + "…";
   }
 
+  function demoPhoneAction(goal) {
+    const match = goal.trim().replace(/\s+/g, " ").match(/^(?:hey[, ]+)?(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:play|listen\s+to)\s+(.+?)(?:\s+(?:for\s+me|on\s+my\s+phone|on\s+iphone))?[.!?]*$/i);
+    if (!match || /\b(chess|game|movie|video game|tic tac toe)\b/i.test(match[1])) return null;
+    const query = match[1].trim().replace(/^(?:some|a)\s+/i, "").slice(0, 180);
+    if (!query) return null;
+    const encoded = encodeURIComponent(query);
+    return {
+      title: "Play " + query,
+      summary: "Tap a music app to continue with " + query + " on this iPhone.",
+      actions: [
+        { label: "Open Apple Music", url: "https://music.apple.com/us/search?term=" + encoded },
+        { label: "Open YouTube", url: "https://www.youtube.com/results?search_query=" + encoded },
+        { label: "Open Spotify", url: "https://open.spotify.com/search/" + encoded }
+      ]
+    };
+  }
+
   function quoteFor(goal, model) {
     const lengthFactor = Math.min(2.2, Math.max(0.8, goal.trim().length / 180));
     return Math.max(0.001, Math.ceil(model.quote * lengthFactor * 1000) / 1000);
@@ -215,13 +214,9 @@
     const model = state.selectedModel;
     els.modelName.textContent = model.short;
     els.modelIcon.src = providerIcon(model);
-    els.privacySummary.className = "privacy-summary " + (model.privacy === "zdr" ? "zdr" : "standard");
-    els.privacySummary.replaceChildren();
-    const privacyDot = document.createElement("i");
-    const planningQuote = quoteFor(els.prompt.value || "A typical agent task", model);
-    els.privacySummary.append(privacyDot, document.createTextNode(" Est. " + money(planningQuote) + " · " + privacyLabel(model)));
-    const budget = Number(els.budgetInput.value || 0);
-    els.send.disabled = !els.prompt.value.trim() || budget <= 0;
+    els.send.disabled = !els.prompt.value.trim();
+    els.prompt.style.height = "auto";
+    els.prompt.style.height = Math.min(els.prompt.scrollHeight, 132) + "px";
   }
 
   function providerIcon(model) {
@@ -234,13 +229,12 @@
   }
 
   function setRuntimeNote(message, tone) {
-    els.runtimeNote.textContent = message;
-    els.runtimeNote.dataset.tone = tone || "neutral";
-    els.statusBanner.hidden = !(tone === "preview" || tone === "error");
-    if (!els.statusBanner.hidden) {
-      els.statusBanner.textContent = message;
-      els.statusBanner.className = "status-banner " + (tone === "preview" ? "preview" : "error");
-    }
+    const visible = tone === "preview" || tone === "error" || tone === "success";
+    els.statusBanner.hidden = !visible;
+    if (!visible) return;
+    els.statusBanner.textContent = message;
+    els.statusBanner.className = "status-banner " + (tone === "preview" ? "preview" : tone === "error" ? "error" : "success");
+    if (tone === "success") window.setTimeout(() => { els.statusBanner.hidden = true; }, 2600);
   }
 
   async function api(path, options) {
@@ -405,17 +399,16 @@
       notifyTransitions(nextJobs);
       state.jobs = nextJobs;
       renderJobs();
-      els.connectionDot.className = state.demo ? "preview" : "connected";
-      if (!quiet) setRuntimeNote(state.demo ? "Preview mode · no cloud work is executed" : "Connected · jobs keep running after you close this page", state.demo ? "preview" : "success");
+      updateNotificationPrompt();
+      if (!quiet && state.demo) setRuntimeNote("Preview mode · no work is sent", "preview");
       openJobFromHash();
     } catch (error) {
-      els.connectionDot.className = "";
       if (error.status === 401 || error.status === 403) {
         state.accessToken = "";
         localStorage.removeItem(STORAGE.token);
         showAccess();
       }
-      setRuntimeNote("Could not reach the PolySwap control plane · " + error.message, "error");
+      setRuntimeNote("PolySwap could not connect · " + error.message, "error");
     }
   }
 
@@ -468,7 +461,7 @@
     if (!jobs.length) {
       const empty = document.createElement("p");
       empty.className = "empty-tasks";
-      empty.textContent = state.search ? "No jobs match that search." : state.filter === "attention" ? "Nothing needs you right now." : state.filter === "archive" ? "Completed jobs will appear here." : "Send your first job above.";
+      empty.textContent = state.search ? "No jobs match that search." : state.filter === "attention" ? "Nothing needs you right now." : state.filter === "archive" ? "Completed jobs will appear here." : "Send a job below.";
       els.taskList.appendChild(empty);
     }
     const attention = state.jobs.filter((job) => ATTENTION.has(job.status)).length;
@@ -487,11 +480,24 @@
     node.dataset.jobId = job.id;
     node.dataset.status = job.status;
     node.querySelector(".task-copy strong").textContent = job.title || titleFor(job.goal || "Untitled job");
-    node.querySelector(".task-copy small").textContent = (job.currentInstruction || job.resultSummary || "Ready for a private cloud runtime.") + " · " + model.short;
-    node.querySelector(".task-meta em").textContent = statusLabel(job.status);
+    node.querySelector(".task-copy small").textContent = job.kind === "phone"
+      ? "Tap to choose where it opens"
+      : plainJobUpdate(job) + " · " + model.short;
+    node.querySelector(".task-meta em").textContent = job.kind === "phone" && job.status === "waiting_for_human" ? "Ready" : statusLabel(job.status);
     node.querySelector(".task-meta time").textContent = timeLabel(job.updatedAt || job.createdAt);
     node.addEventListener("click", () => openJob(job.id));
     return node;
+  }
+
+  function plainJobUpdate(job) {
+    if (job.status === "queued") return "Waiting to start";
+    if (job.status === "running" || job.status === "background" || job.status === "recovering") return "Working";
+    if (ATTENTION.has(job.status)) return "Waiting for you";
+    if (job.status === "completed") return "Done";
+    if (job.status === "completed_unverified") return "Ready to review";
+    if (job.status === "failed") return job.error || "Stopped";
+    if (job.status === "cancelled") return "Cancelled";
+    return job.resultSummary || "Saved";
   }
 
   function progressFor(status) {
@@ -512,7 +518,6 @@
       setRuntimeNote(model.detail, "error");
       return;
     }
-    const budgetUsd = Number(els.budgetInput.value || 0);
     const payload = {
       sessionId: state.sessionId,
       goal,
@@ -521,7 +526,7 @@
       modelId: model.id,
       modelRoute: model.route,
       privacyMode: model.privacy,
-      permissionProfile: els.accessSelect.value,
+      permissionProfile: "ask",
       workspace: "Cloud workspace",
       acceptanceCriteria: [
         "Complete the requested work without inventing facts",
@@ -529,89 +534,59 @@
         "Return a result, cost, and evidence receipt"
       ],
       estimatedUsd: quoteFor(goal, model),
-      budgetUsd,
+      budgetUsd: DEFAULT_BUDGET_USD,
       background: true
     };
     els.send.disabled = true;
-    setRuntimeNote("Checking the route, cost and execution boundary…", "neutral");
     try {
-      const quote = state.demo
-        ? {
-            modelId: model.id,
-            modelLabel: model.name,
-            provider: model.provider,
-            privacy: privacyLabel(model),
-            estimatedUsd: payload.estimatedUsd,
-            maximumUsd: budgetUsd,
-            capability: "Preview only",
-            externalActions: "No work executes in preview mode"
-          }
-        : (await api("/v1/quote", { method: "POST", body: JSON.stringify(payload) })).quote;
-      if (Number(quote.estimatedUsd) > budgetUsd) {
-        setRuntimeNote("Raise the cost ceiling above the " + money(quote.estimatedUsd) + " estimate before sending.", "error");
-        return;
-      }
-      payload.estimatedUsd = Number(quote.estimatedUsd);
-      state.pendingJob = { payload, quote };
-      els.quoteGoal.textContent = goal;
-      els.quoteModel.textContent = quote.modelLabel;
-      els.quoteRoute.textContent = quote.privacy || quote.provider;
-      els.quoteEstimate.textContent = money(quote.estimatedUsd);
-      els.quoteMaximum.textContent = money(budgetUsd);
-      els.quoteBoundary.textContent = state.demo
-        ? "Preview mode: this shows the authorization step, but no cloud work executes."
-        : quote.capability + ". " + quote.externalActions + ".";
-      els.quoteDialog.showModal();
-      setRuntimeNote("Quote ready · review it before the cloud job starts", "success");
+      await startJob(payload);
     } catch (error) {
-      setRuntimeNote("Could not prepare the job · " + error.message, "error");
+      setRuntimeNote("Could not start the job · " + error.message, "error");
     } finally {
       updateComposer();
     }
   }
 
-  async function startQuotedJob() {
-    const pending = state.pendingJob;
-    if (!pending) return;
-    state.pendingJob = null;
-    els.quoteStart.disabled = true;
-    setRuntimeNote("Creating the durable job and starting its cloud runtime…", "neutral");
-    try {
-      let job;
-      if (state.demo) {
-        const now = new Date().toISOString();
-        job = {
-          id: "demo-" + Date.now(),
-          ...pending.payload,
-          status: "queued",
-          actualUsd: 0,
-          currentInstruction: "Waiting for a preview runtime.",
-          createdAt: now,
-          updatedAt: now,
-          events: [{ type: "created", message: "Preview job created. No external work will run.", createdAt: now }],
-          approvals: []
-        };
-        state.jobs.unshift(job);
-        persistDemo();
-        window.setTimeout(() => advanceDemo(job.id), 1400);
-      } else {
-        const response = await api("/v1/jobs", { method: "POST", body: JSON.stringify(pending.payload) });
-        job = response.job;
-        state.jobs.unshift(job);
-      }
-      els.quoteDialog.close();
-      els.prompt.value = "";
-      updateComposer();
-      renderJobs();
-      setRuntimeNote(state.demo ? "Preview job created · no cloud work is executed" : "Running in the cloud · you can close PolySwap now", state.demo ? "preview" : "success");
-      await openJob(job.id);
-    } catch (error) {
-      state.pendingJob = pending;
-      setRuntimeNote("Could not start the job · " + error.message, "error");
-    } finally {
-      els.quoteStart.disabled = false;
-      updateComposer();
+  async function startJob(payload) {
+    let job;
+    if (state.demo) {
+      const now = new Date().toISOString();
+      const phoneAction = demoPhoneAction(payload.goal);
+      job = {
+        id: "demo-" + Date.now(),
+        ...payload,
+        ...(phoneAction ? {
+          title: phoneAction.title,
+          kind: "phone",
+          modelId: "polyswap/iphone",
+          modelRoute: "iphone",
+          privacyMode: "device",
+          estimatedUsd: 0,
+          budgetUsd: 0,
+          resultSummary: phoneAction.summary,
+          receipt: { status: "phone_handoff", summary: phoneAction.summary, evidence: phoneAction.actions, actualUsd: 0 }
+        } : {}),
+        status: phoneAction ? "waiting_for_human" : "queued",
+        actualUsd: 0,
+        currentInstruction: phoneAction ? "Choose a music app to continue." : "Waiting to start",
+        createdAt: now,
+        updatedAt: now,
+        events: [{ type: phoneAction ? "ready" : "created", message: phoneAction ? "Choose a music app to continue." : "Preview job created. No work was sent.", createdAt: now }],
+        approvals: []
+      };
+      state.jobs.unshift(job);
+      persistDemo();
+      if (!phoneAction) window.setTimeout(() => advanceDemo(job.id), 1400);
+    } else {
+      const response = await api("/v1/jobs", { method: "POST", body: JSON.stringify(payload) });
+      job = response.job;
+      state.jobs.unshift(job);
     }
+    els.prompt.value = "";
+    updateComposer();
+    renderJobs();
+    updateNotificationPrompt();
+    await openJob(job.id);
   }
 
   function advanceDemo(jobId) {
@@ -679,14 +654,12 @@
 
   function renderJobDetail(job) {
     const model = findModel(job.modelId) || { name: job.modelId, provider: job.modelRoute };
-    els.taskDetailId.textContent = "Job " + job.id.slice(-6);
-    els.taskDetailStatus.textContent = statusLabel(job.status) + " · " + money(job.actualUsd) + " spent";
+    els.taskDetailId.textContent = "Job";
+    els.taskDetailStatus.textContent = job.kind === "phone" && job.status === "waiting_for_human"
+      ? "Ready on this iPhone"
+      : statusLabel(job.status) + (Number(job.actualUsd) ? " · " + money(job.actualUsd) : "");
     els.taskDetailTitle.textContent = job.title;
     els.taskDetailGoal.textContent = job.goal;
-    els.taskDetailModel.textContent = model.name + " · " + (model.provider || job.modelRoute || "PolySwap");
-    els.taskDetailPrivacy.textContent = job.privacyMode === "zdr" ? "Pinned zero retention" : job.privacyMode === "cloudflare" ? "Cloudflare-hosted" : "Private route";
-    els.taskDetailBudget.textContent = money(job.budgetUsd) + " max · " + money(job.estimatedUsd) + " planning estimate";
-    els.taskDetailAccess.textContent = job.permissionProfile === "read-only" ? "Read only" : "Ask before acting";
 
     const pending = (job.approvals || []).find((approval) => approval.status === "pending");
     els.approvalCard.hidden = !pending;
@@ -704,8 +677,8 @@
     els.receiptCard.hidden = !hasReceipt;
     els.receiptEvidence.replaceChildren();
     if (hasReceipt) {
-      els.receiptTitle.textContent = job.status === "completed" ? "Completed and verified" : "Runtime receipt";
-      els.receiptSummary.textContent = job.resultSummary || receiptSummary || "Evidence was returned by the runtime.";
+      els.receiptTitle.textContent = job.kind === "phone" ? "Choose where to play it" : job.status === "completed" ? "Done" : "Result";
+      els.receiptSummary.textContent = job.resultSummary || receiptSummary || "PolySwap returned a result.";
       if (receiptSummary && job.resultSummary && receiptSummary !== job.resultSummary) {
         const receipt = document.createElement("li");
         receipt.textContent = receiptSummary;
@@ -719,6 +692,10 @@
           link.target = "_blank";
           link.rel = "noopener";
           link.textContent = evidence.label || "Open evidence";
+          if (job.kind === "phone") {
+            link.className = "phone-action";
+            link.addEventListener("click", () => markPhoneActionOpened(job, evidence.label));
+          }
           item.appendChild(link);
         } else {
           item.textContent = typeof evidence === "string" ? evidence : evidence.label || "Evidence recorded";
@@ -729,7 +706,8 @@
 
     renderTimeline(job);
     const terminal = TERMINAL.has(job.status);
-    els.swapButton.textContent = terminal ? "Run a similar job" : "Swap intelligence";
+    els.taskActions.hidden = job.kind === "phone";
+    els.swapButton.textContent = terminal ? "Run again" : "Change model";
     els.swapButton.onclick = terminal ? () => duplicateJob(job) : () => {
       state.swapJobId = job.id;
       renderModels();
@@ -740,6 +718,18 @@
     els.pauseButton.onclick = () => actOnJob(job, job.status === "paused" ? "resume" : "pause");
     els.cancelButton.disabled = terminal;
     els.cancelButton.onclick = () => actOnJob(job, "cancel");
+  }
+
+  function markPhoneActionOpened(job, target) {
+    if (state.demo || TERMINAL.has(job.status)) return;
+    api("/v1/jobs/" + encodeURIComponent(job.id) + "/actions", {
+      method: "POST",
+      keepalive: true,
+      body: JSON.stringify({ sessionId: state.sessionId, action: "opened", target: target || "music app" })
+    }).then((payload) => {
+      replaceJob(payload.job);
+      renderJobs();
+    }).catch(() => {});
   }
 
   function renderTimeline(job) {
@@ -753,7 +743,7 @@
       item.className = "timeline-item " + eventType;
       item.innerHTML = '<i></i><span><strong></strong><small></small></span><time></time>';
       item.querySelector("strong").textContent = event.label || eventLabel(eventType);
-      item.querySelector("small").textContent = event.message || event.detail || "Checkpoint recorded.";
+      item.querySelector("small").textContent = plainEventDetail(eventType, event.message || event.detail);
       item.querySelector("time").textContent = timeLabel(event.createdAt);
       els.taskTimeline.appendChild(item);
     });
@@ -761,19 +751,30 @@
 
   function eventLabel(type) {
     const labels = {
-      created: "Job created",
-      claimed: "Runtime started",
-      checkpoint: "Checkpoint",
+      created: "Sent",
+      queued: "Sent",
+      claimed: "Started",
+      running: "Started",
+      ready: "Ready",
+      checkpoint: "Update",
       approval_requested: "Approval requested",
       approved: "Approved",
       denied: "Denied",
-      model_swapped: "Intelligence swapped",
-      completed: "Completed",
+      model_swapped: "Model changed",
+      completed: "Done",
       failed: "Stopped",
       paused: "Paused",
       resumed: "Resumed"
     };
     return labels[type] || statusLabel(type);
+  }
+
+  function plainEventDetail(type, detail) {
+    if (type === "created" || type === "queued") return "Waiting to start.";
+    if (type === "claimed" || type === "running") return "PolySwap started working.";
+    if (type === "ready") return detail || "Ready on this iPhone.";
+    if (type === "completed") return "The result is ready.";
+    return detail || "Updated.";
   }
 
   async function actOnJob(job, action, extra) {
@@ -855,11 +856,8 @@
     els.prompt.value = job.goal;
     const model = findModel(job.modelId);
     if (model?.available) state.selectedModel = model;
-    els.accessSelect.value = job.permissionProfile || "ask";
-    els.budgetInput.value = job.budgetUsd || 0.25;
     updateComposer();
     els.prompt.focus();
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function submitAccess(event) {
@@ -929,6 +927,7 @@
           method: "POST",
           body: JSON.stringify({ sessionId: state.sessionId, subscription: subscription.toJSON() })
         });
+        updateNotificationPrompt();
         setRuntimeNote("Notifications enabled · PolySwap can alert you after the app is closed", "success");
         await showNotification("PolySwap notifications are on", "Approvals and completed jobs will reach this phone.", "");
       } catch (error) {
@@ -937,6 +936,12 @@
     } else {
       setRuntimeNote("Notifications were not enabled. Jobs still remain in the task list.", "neutral");
     }
+  }
+
+  function updateNotificationPrompt() {
+    const supported = "Notification" in window && "PushManager" in window && "serviceWorker" in navigator;
+    const alreadyOn = supported && Notification.permission === "granted";
+    els.notificationPrompt.hidden = state.demo || !state.jobs.length || alreadyOn;
   }
 
   function startDictation() {
@@ -970,7 +975,6 @@
   function bindEvents() {
     els.form.addEventListener("submit", createJob);
     els.prompt.addEventListener("input", updateComposer);
-    els.budgetInput.addEventListener("input", updateComposer);
     els.modelButton.addEventListener("click", () => {
       state.swapJobId = null;
       renderModels();
@@ -985,11 +989,7 @@
     els.notifyButton.addEventListener("click", requestNotifications);
     els.micButton.addEventListener("click", startDictation);
     els.searchButton.addEventListener("click", searchJobs);
-    els.accountButton.addEventListener("click", showAccess);
     els.modelClose.addEventListener("click", () => els.modelDialog.close());
-    els.quoteClose.addEventListener("click", () => { state.pendingJob = null; els.quoteDialog.close(); });
-    els.quoteCancel.addEventListener("click", () => { state.pendingJob = null; els.quoteDialog.close(); });
-    els.quoteStart.addEventListener("click", startQuotedJob);
     els.taskClose.addEventListener("click", () => els.taskDialog.close());
     els.taskDialog.addEventListener("close", () => {
       state.activeJob = null;
@@ -1012,8 +1012,7 @@
     renderModels();
     updateComposer();
     if (state.demo) {
-      els.connectionDot.className = "preview";
-      setRuntimeNote("Preview mode · no cloud work is executed", "preview");
+      setRuntimeNote("Preview mode · no work is sent", "preview");
     }
     await registerServiceWorker();
     await loadModels();

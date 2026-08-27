@@ -17,8 +17,8 @@ The public Chat path now includes:
 
 The mobile cloud alpha includes:
 
-- A phone-first durable job composer at `mobile.html`
-- Per-job intelligence, privacy route, permission profile, and cost ceiling
+- A phone-first task list with a compact, desktop-style composer at `mobile.html`
+- One-tap model selection with server-enforced permission and cost defaults
 - Task, attention, and archive views with live checkpoints
 - One-time approval controls for consequential external actions
 - Intelligence swapping that requeues the same work record and checkpoint
@@ -33,6 +33,8 @@ The mobile cloud alpha includes:
   receipt
 - Server-issued preflight quotes and enforced per-job cost ceilings
 - Home-screen Web Push subscriptions for closed-app completion alerts
+- Zero-cost iPhone handoffs for music requests, with Apple Music, YouTube, and
+  Spotify links recorded in the job
 
 Open `https://polyswap.ai/mobile.html` on a phone for the private cloud alpha.
 For local UI work, serve this directory on port 4173 and open
@@ -49,9 +51,10 @@ non-executing demo mode.
   observation and Cloudflare-hosted model inference without a laptop staying
   online.
 - Consequential work remains deliberately gated. The built-in runner will not
-  submit forms, send email, call people, purchase items, change accounts, or
-  control a phone. It may prepare a draft and returns `completed_unverified`
-  instead of claiming that an outside action happened.
+  submit forms, send email, call people, purchase items, or change accounts. It
+  may prepare a draft and returns `completed_unverified` instead of claiming
+  that an outside action happened. Music requests return real iPhone app links;
+  iOS still requires the user to tap a service before audio can begin.
 - Server-side quotes use the selected Cloudflare model's token rates and a
   bounded browser allowance. The job stores both the estimate and maximum;
   actual metered model and browser usage is written to its receipt.

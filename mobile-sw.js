@@ -1,8 +1,8 @@
-const CACHE_NAME = 'polyswap-mobile-v3'
+const CACHE_NAME = 'polyswap-mobile-v4'
 const APP_SHELL = [
   '/mobile.html',
-  '/mobile.css?v=mobile-cloud-3',
-  '/mobile.js?v=mobile-cloud-3',
+  '/mobile.css?v=mobile-cloud-4',
+  '/mobile.js?v=mobile-cloud-4',
   '/assets/polyswap-mark.png?v=2',
   '/assets/providers/openai.svg',
   '/assets/providers/deepseek.svg',

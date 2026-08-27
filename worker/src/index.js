@@ -110,9 +110,9 @@ const CLOUD_JOB_STATUSES = new Set([
   'queued', 'running', 'background', 'waiting_for_human', 'paused',
   'recovering', 'blocked', 'completed', 'completed_unverified', 'failed', 'cancelled'
 ])
-const CLOUD_JOB_KINDS = new Set(['work', 'browser', 'coding', 'email', 'call'])
-const CLOUD_JOB_ROUTES = new Set(['cloudflare', 'openai', 'openrouter', 'polyswap'])
-const CLOUD_JOB_PRIVACY = new Set(['cloudflare', 'private', 'zdr', 'standard'])
+const CLOUD_JOB_KINDS = new Set(['work', 'browser', 'coding', 'email', 'call', 'phone'])
+const CLOUD_JOB_ROUTES = new Set(['cloudflare', 'openai', 'openrouter', 'polyswap', 'iphone'])
+const CLOUD_JOB_PRIVACY = new Set(['cloudflare', 'private', 'zdr', 'standard', 'device'])
 const CLOUD_JOB_PERMISSIONS = new Set(['read-only', 'ask', 'auto', 'full'])
 const TERMINAL_JOB_STATUSES = new Set(['completed', 'completed_unverified', 'failed', 'cancelled'])
 
@@ -926,6 +926,25 @@ function parseJsonArray(value) {
   }
 }
 
+function phoneActionForGoal(goal) {
+  const normalized = String(goal || '').trim().replace(/\s+/g, ' ')
+  const match = normalized.match(/^(?:hey[, ]+)?(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:play|listen\s+to)\s+(.+?)(?:\s+(?:for\s+me|on\s+my\s+phone|on\s+iphone))?[.!?]*$/i)
+  if (!match) return null
+  const query = boundedText(match[1].trim().replace(/^(?:some|a)\s+/i, ''), 180)
+  if (!query || /\b(chess|game|movie|video game|tic tac toe)\b/i.test(query)) return null
+  const encoded = encodeURIComponent(query)
+  return {
+    kind: 'music',
+    title: boundedText(`Play ${query}`, 100, 'Play music'),
+    summary: `Tap a music app to continue with ${query} on this iPhone.`,
+    actions: [
+      { label: 'Open Apple Music', url: `https://music.apple.com/us/search?term=${encoded}` },
+      { label: 'Open YouTube', url: `https://www.youtube.com/results?search_query=${encoded}` },
+      { label: 'Open Spotify', url: `https://open.spotify.com/search/${encoded}` }
+    ]
+  }
+}
+
 function normalizeCloudJob(row, events = [], approvals = []) {
   if (!row) return null
   const latestEvent = events.length ? events[events.length - 1] : null
@@ -1004,6 +1023,22 @@ async function handleCloudQuote(request, env, cors) {
   }
   const goal = boundedText(body.goal, 8000)
   if (!goal) return json({ error: { message: 'Describe the work you want PolySwap to complete.' } }, 400, cors)
+  const phoneAction = phoneActionForGoal(goal)
+  if (phoneAction) {
+    return json({
+      quote: {
+        modelId: 'polyswap/iphone',
+        modelLabel: 'iPhone',
+        provider: 'This iPhone',
+        privacy: 'Opens on this iPhone',
+        estimatedUsd: 0,
+        maximumUsd: 0,
+        capability: 'Opens the selected music app on this iPhone',
+        externalActions: 'One tap required',
+        expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString()
+      }
+    }, 200, cors)
+  }
   const profile = await resolveModelProfile(env, boundedText(body.modelId, 200, 'polyswap/auto')).catch(() => null)
   if (!profile) return json({ error: { message: 'That intelligence is not recognized.' } }, 400, cors)
   if (!profile.available) return json({ error: { message: profile.unavailableReason }, code: 'MODEL_UNAVAILABLE' }, 409, cors)
@@ -1051,6 +1086,18 @@ async function handleCreateJob(request, env, ctx, cors) {
   const goal = boundedText(body.goal, 8000)
   if (!goal) return json({ error: { message: 'Describe the work you want PolySwap to complete.' } }, 400, cors)
   const id = 'job_' + crypto.randomUUID()
+  const phoneAction = phoneActionForGoal(goal)
+  if (phoneAction) {
+    await env.DB.batch([
+      env.DB.prepare('INSERT OR IGNORE INTO sessions (id) VALUES (?)').bind(body.sessionId),
+      env.DB.prepare('UPDATE sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE id = ?').bind(body.sessionId),
+      env.DB.prepare("INSERT INTO cloud_jobs (id, session_id, title, goal, kind, status, model_id, model_route, privacy_mode, permission_profile, workspace, acceptance_criteria, estimated_usd, budget_usd, actual_usd, background, result_summary, receipt_status, receipt_evidence) VALUES (?, ?, ?, ?, 'phone', 'waiting_for_human', 'polyswap/iphone', 'iphone', 'device', 'ask', 'This iPhone', '[]', 0, 0, 0, 0, ?, 'phone_handoff', ?)")
+        .bind(id, body.sessionId, phoneAction.title, goal, phoneAction.summary, JSON.stringify(phoneAction.actions)),
+      env.DB.prepare('INSERT INTO cloud_job_events (job_id, kind, label, detail) VALUES (?, ?, ?, ?)')
+        .bind(id, 'ready', 'Ready on this iPhone', 'Choose a music app to continue.')
+    ])
+    return json({ job: await readCloudJob(env, id, body.sessionId) }, 201, cors)
+  }
   const title = boundedText(body.title, 100, goal.replace(/\s+/g, ' ').slice(0, 76)) || 'New PolySwap job'
   const kind = CLOUD_JOB_KINDS.has(body.kind) ? body.kind : 'work'
   const modelId = boundedText(body.modelId, 200, 'polyswap/auto')
@@ -1088,7 +1135,7 @@ async function handleCreateJob(request, env, ctx, cors) {
     env.DB.prepare("INSERT INTO cloud_jobs (id, session_id, title, goal, kind, status, model_id, model_route, privacy_mode, permission_profile, permission_scope, workspace, acceptance_criteria, estimated_usd, budget_usd, background) VALUES (?, ?, ?, ?, ?, 'queued', ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)")
       .bind(id, body.sessionId, title, goal, kind, modelId, modelRoute, privacyMode, permissionProfile, permissionScope, workspace, JSON.stringify(criteria), estimatedUsd, budgetUsd),
     env.DB.prepare('INSERT INTO cloud_job_events (job_id, kind, label, detail) VALUES (?, ?, ?, ?)')
-      .bind(id, 'queued', 'Job accepted', 'PolySwap saved the work record and queued it for a bounded cloud runtime.')
+      .bind(id, 'queued', 'Waiting to start', 'PolySwap will start this job shortly.')
   ])
   try {
     await env.JOB_QUEUE.send({ jobId: id })
@@ -1133,7 +1180,10 @@ async function handleJobAction(request, env, ctx, cors, jobId) {
   let detail = ''
   const updates = []
 
-  if (action === 'pause' && !TERMINAL_JOB_STATUSES.has(job.status)) {
+  if (action === 'opened' && job.kind === 'phone' && job.status === 'waiting_for_human') {
+    const target = boundedText(body.target, 80, 'music app')
+    status = 'completed'; label = 'Opened on this iPhone'; detail = `${target} was opened from PolySwap.`
+  } else if (action === 'pause' && !TERMINAL_JOB_STATUSES.has(job.status)) {
     status = 'paused'; label = 'Job paused'; detail = 'The user paused the runner lease from the phone.'
   } else if (action === 'resume' && job.status === 'paused') {
     status = 'queued'; label = 'Job resumed'; detail = 'PolySwap returned the saved checkpoint to the runner queue.'

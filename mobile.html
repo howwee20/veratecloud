@@ -13,8 +13,8 @@
   <link rel="icon" type="image/png" href="assets/polyswap-mark.png?v=2">
   <link rel="apple-touch-icon" href="assets/polyswap-mark.png?v=2">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="mobile.css?v=mobile-cloud-3">
-  <script src="mobile.js?v=mobile-cloud-3" defer></script>
+  <link rel="stylesheet" href="mobile.css?v=mobile-cloud-4">
+  <script src="mobile.js?v=mobile-cloud-4" defer></script>
 </head>
 <body>
   <header class="mobile-header">
@@ -22,57 +22,9 @@
       <img src="assets/polyswap-mark.png?v=2" alt="">
       <span>PolySwap</span>
     </a>
-    <div class="header-actions">
-      <button class="icon-button" id="notificationButton" type="button" aria-label="Enable task notifications">
-        <span aria-hidden="true">♧</span>
-      </button>
-      <button class="account-button" id="accountButton" type="button" aria-label="Open PolySwap access">
-        <span id="accountInitial">P</span>
-        <i id="connectionDot"></i>
-      </button>
-    </div>
   </header>
 
   <main class="mobile-main">
-    <section class="launch-section" aria-labelledby="launchTitle">
-      <div class="launch-heading">
-        <p>PolySwap Cloud</p>
-        <h1 id="launchTitle">What should PolySwap do?</h1>
-      </div>
-
-      <form class="job-composer" id="jobComposer">
-        <label class="sr-only" for="jobPrompt">Describe a job</label>
-        <textarea id="jobPrompt" rows="4" maxlength="8000" placeholder="Describe a job" required></textarea>
-        <div class="composer-bottom">
-          <div class="composer-tools">
-            <button class="composer-tool model-tool" id="modelButton" type="button" aria-haspopup="dialog">
-              <img id="modelIcon" src="assets/polyswap-mark.png?v=2" alt="">
-              <b id="modelLabel">Auto</b><span aria-hidden="true">⌄</span>
-            </button>
-          </div>
-          <div class="send-tools">
-            <button class="voice-button" id="voiceButton" type="button" aria-label="Dictate the job">⌁</button>
-            <button class="send-button" id="sendButton" type="submit" aria-label="Send job to PolySwap">↑</button>
-          </div>
-        </div>
-        <div class="job-policy">
-          <label for="permissionSelect">Access
-            <select id="permissionSelect">
-              <option value="ask" selected>Stop at sensitive actions</option>
-              <option value="read-only">Read only</option>
-              <option value="auto" disabled>Auto actions · coming later</option>
-              <option value="full" disabled>Full access · coming later</option>
-            </select>
-          </label>
-          <label for="budgetInput">Maximum
-            <span class="money-input"><span>$</span><input id="budgetInput" type="number" inputmode="decimal" min="0.01" max="25" step="0.01" value="0.25"></span>
-          </label>
-          <span class="privacy-summary" id="privacySummary"><i></i> Cloudflare-hosted</span>
-        </div>
-      </form>
-      <p class="runtime-note" id="runtimeNote">Send it, close the app, and PolySwap will notify you when it is done.</p>
-    </section>
-
     <section class="tasks-section" aria-labelledby="tasksTitle">
       <div class="task-tabs" role="tablist" aria-label="Task filters">
         <button class="active" type="button" role="tab" aria-selected="true" data-filter="active">Tasks</button>
@@ -82,8 +34,27 @@
       </div>
       <h2 class="sr-only" id="tasksTitle">PolySwap tasks</h2>
       <div class="status-banner" id="statusBanner" hidden></div>
+      <div class="notification-prompt" id="notificationPrompt" hidden>
+        <span>Get updates when jobs finish</span>
+        <button id="notificationButton" type="button">Turn on</button>
+      </div>
       <div class="task-list" id="taskList" aria-live="polite"></div>
     </section>
+
+    <form class="job-composer" id="jobComposer">
+      <label class="sr-only" for="jobPrompt">Ask anything or describe the work</label>
+      <textarea id="jobPrompt" rows="1" maxlength="8000" placeholder="Ask anything or describe the work" required></textarea>
+      <div class="composer-bottom">
+        <button class="composer-tool model-tool" id="modelButton" type="button" aria-haspopup="dialog">
+          <img id="modelIcon" src="assets/polyswap-mark.png?v=2" alt="">
+          <b id="modelLabel">Auto</b><span aria-hidden="true">⌄</span>
+        </button>
+        <div class="send-tools">
+          <button class="voice-button" id="voiceButton" type="button" aria-label="Dictate the job">⌁</button>
+          <button class="send-button" id="sendButton" type="submit" aria-label="Send job to PolySwap">↑</button>
+        </div>
+      </div>
+    </form>
   </main>
 
   <dialog class="sheet-dialog access-dialog" id="accessDialog">
@@ -92,7 +63,7 @@
       <img class="sheet-mark" src="assets/polyswap-mark.png?v=2" alt="">
       <p class="sheet-kicker">Private alpha</p>
       <h2>Open your PolySwap</h2>
-      <p>Use the access code to connect this phone to the private cloud control plane.</p>
+      <p>Enter your access code.</p>
       <label for="accessCode">Access code</label>
       <input id="accessCode" type="password" autocomplete="one-time-code" placeholder="Enter code">
       <p class="form-error" id="accessError" hidden></p>
@@ -104,30 +75,10 @@
   <dialog class="sheet-dialog model-dialog" id="modelDialog">
     <div class="sheet-card">
       <button class="sheet-close" id="modelClose" type="button" aria-label="Close">×</button>
-      <p class="sheet-kicker">Intelligence</p>
+      <p class="sheet-kicker">Model</p>
       <h2>Pick a model</h2>
       <p class="model-intro">Change the model. Keep the same job.</p>
       <div class="model-options" id="modelOptions"></div>
-    </div>
-  </dialog>
-
-  <dialog class="sheet-dialog quote-dialog" id="quoteDialog">
-    <div class="sheet-card">
-      <button class="sheet-close" id="quoteClose" type="button" aria-label="Close quote">×</button>
-      <p class="sheet-kicker">Ready</p>
-      <h2 id="quoteTitle">Send this job?</h2>
-      <p class="quote-goal" id="quoteGoal"></p>
-      <dl class="quote-facts">
-        <div><dt>Intelligence</dt><dd id="quoteModel"></dd></div>
-        <div><dt>Route</dt><dd id="quoteRoute"></dd></div>
-        <div><dt>Estimate</dt><dd id="quoteEstimate"></dd></div>
-        <div><dt>Maximum</dt><dd id="quoteMaximum"></dd></div>
-      </dl>
-      <p class="quote-boundary" id="quoteBoundary">Private alpha: read-only cloud research and drafting. External actions remain blocked.</p>
-      <div class="quote-actions">
-        <button class="quiet-action" id="quoteCancel" type="button">Cancel</button>
-        <button class="primary-action" id="quoteStart" type="button">Send job</button>
-      </div>
     </div>
   </dialog>
 
@@ -136,17 +87,10 @@
       <header>
         <button class="task-back" id="taskClose" type="button" aria-label="Close task">‹</button>
         <div><small id="taskDetailId">Job</small><strong id="taskDetailStatus">Queued</strong></div>
-        <button class="task-menu" type="button" aria-label="Task options">•••</button>
       </header>
       <section class="task-detail-main">
         <h2 id="taskDetailTitle">PolySwap job</h2>
         <p id="taskDetailGoal"></p>
-        <dl class="task-facts">
-          <div><dt>Intelligence</dt><dd id="taskDetailModel"></dd></div>
-          <div><dt>Privacy</dt><dd id="taskDetailPrivacy"></dd></div>
-          <div><dt>Maximum</dt><dd id="taskDetailBudget"></dd></div>
-          <div><dt>Access</dt><dd id="taskDetailAccess"></dd></div>
-        </dl>
         <section class="approval-card" id="approvalCard" hidden>
           <small>PolySwap needs you</small>
           <h3 id="approvalTitle">Allow this action?</h3>
@@ -155,7 +99,7 @@
           <div><button class="quiet-action" id="denyButton" type="button">Deny</button><button class="primary-action" id="approveButton" type="button">Allow once</button></div>
         </section>
         <section class="receipt-card" id="receiptCard" hidden>
-          <small>Verified receipt</small>
+          <small>Result</small>
           <h3 id="receiptTitle">Completed</h3>
           <p id="receiptSummary"></p>
           <ul id="receiptEvidence"></ul>
@@ -165,7 +109,7 @@
           <div class="timeline" id="taskTimeline"></div>
         </section>
       </section>
-      <footer class="task-actions">
+      <footer class="task-actions" id="taskActions">
         <button id="swapButton" type="button">Swap intelligence</button>
         <button id="pauseButton" type="button">Pause</button>
         <button class="danger-action" id="cancelButton" type="button">Cancel</button>
