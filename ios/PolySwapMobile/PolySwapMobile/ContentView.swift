@@ -1,92 +1,62 @@
 import SwiftUI
+import WebKit
 
 struct ContentView: View {
     @EnvironmentObject private var cloud: CloudPlaybackStore
     @EnvironmentObject private var player: MusicPlaybackController
 
     var body: some View {
-        NavigationStack {
-            Group {
-                if cloud.isPaired {
-                    playerView
-                } else {
-                    pairingView
-                }
-            }
-            .padding(22)
-            .navigationTitle("PolySwap")
-            .navigationBarTitleDisplayMode(.inline)
-        }
+        PolySwapWebView(cloud: cloud, player: player)
+            .ignoresSafeArea(.container, edges: .bottom)
+    }
+}
+
+private struct PolySwapWebView: UIViewRepresentable {
+    let cloud: CloudPlaybackStore
+    let player: MusicPlaybackController
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(cloud: cloud, player: player)
     }
 
-    private var pairingView: some View {
-        VStack(spacing: 18) {
-            Spacer()
-            Image(systemName: "circle.hexagongrid.fill")
-                .font(.system(size: 54))
-                .foregroundStyle(.purple)
-            Text("Connect this iPhone")
-                .font(.title2.bold())
-            Text("Open a music job on polyswap.ai, tap “Keep playing after I leave,” then enter the six-digit code.")
-                .multilineTextAlignment(.center)
-                .foregroundStyle(.secondary)
-            TextField("000000", text: $cloud.pairingCode)
-                .keyboardType(.numberPad)
-                .textContentType(.oneTimeCode)
-                .font(.system(size: 30, weight: .semibold, design: .rounded))
-                .multilineTextAlignment(.center)
-                .padding()
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
-            Button("Connect") { Task { await cloud.pair() } }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .disabled(cloud.isBusy)
-            Text(cloud.message)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Spacer()
-        }
+    func makeUIView(context: Context) -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        configuration.allowsInlineMediaPlayback = true
+        configuration.websiteDataStore = .default()
+        configuration.userContentController.add(context.coordinator, name: "polyswapNative")
+
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.scrollView.contentInsetAdjustmentBehavior = .automatic
+        webView.allowsBackForwardNavigationGestures = false
+        webView.customUserAgent = "PolySwap-iPhone/0.2"
+        webView.load(URLRequest(url: URL(string: "https://polyswap.ai/mobile.html?native=1")!))
+        return webView
     }
 
-    private var playerView: some View {
-        VStack(spacing: 18) {
-            Spacer()
-            Image(systemName: player.status == "playing" ? "waveform.circle.fill" : "play.circle.fill")
-                .font(.system(size: 72))
-                .foregroundStyle(.purple)
-            Text(player.nowPlaying)
-                .font(.title3.bold())
-                .multilineTextAlignment(.center)
-            Text(player.status == "playing" ? "Playing in the background" : cloud.message)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+    func updateUIView(_ webView: WKWebView, context: Context) {}
 
-            HStack {
-                Button { Task { await cloud.send("previous") } } label: { Image(systemName: "backward.fill") }
-                Button { Task { await cloud.send(player.status == "paused" ? "resume" : "pause") } } label: {
-                    Image(systemName: player.status == "paused" ? "play.fill" : "pause.fill")
-                }
-                Button { Task { await cloud.send("next") } } label: { Image(systemName: "forward.fill") }
-            }
-            .font(.title2)
-            .buttonStyle(.bordered)
+    final class Coordinator: NSObject, WKScriptMessageHandler {
+        private let cloud: CloudPlaybackStore
+        private let player: MusicPlaybackController
 
-            Picker("Model", selection: $cloud.selectedModel) {
-                ForEach(ModelChoice.choices) { model in Text(model.label).tag(model.id) }
-            }
-            .pickerStyle(.menu)
+        init(cloud: CloudPlaybackStore, player: MusicPlaybackController) {
+            self.cloud = cloud
+            self.player = player
+        }
 
-            HStack(spacing: 8) {
-                TextField("Ask PolySwap or change the music", text: $cloud.command)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { Task { await cloud.send() } }
-                Button { Task { await cloud.send() } } label: { Image(systemName: "arrow.up.circle.fill").font(.title) }
-                    .disabled(cloud.command.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || cloud.isBusy)
+        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard message.frameInfo.isMainFrame,
+                  message.frameInfo.request.url?.scheme == "https",
+                  message.frameInfo.request.url?.host == "polyswap.ai",
+                  message.name == "polyswapNative",
+                  let body = message.body as? [String: Any],
+                  body["type"] as? String == "connect",
+                  let sessionId = body["sessionId"] as? String,
+                  let accessToken = body["accessToken"] as? String else { return }
+
+            Task { @MainActor in
+                await cloud.connect(sessionId: sessionId, accessToken: accessToken, player: player)
             }
-            Spacer()
-            Button("Disconnect this iPhone", role: .destructive) { cloud.disconnect() }
-                .font(.footnote)
         }
     }
 }

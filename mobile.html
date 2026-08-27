@@ -13,8 +13,8 @@
   <link rel="icon" type="image/png" href="assets/polyswap-mark.png?v=2">
   <link rel="apple-touch-icon" href="assets/polyswap-mark.png?v=2">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="mobile.css?v=mobile-cloud-6">
-  <script src="mobile.js?v=mobile-cloud-6" defer></script>
+  <link rel="stylesheet" href="mobile.css?v=mobile-cloud-7">
+  <script src="mobile.js?v=mobile-cloud-7" defer></script>
 </head>
 <body>
   <header class="mobile-header">
@@ -25,25 +25,9 @@
   </header>
 
   <main class="mobile-main">
-    <section class="tasks-section" aria-labelledby="tasksTitle">
-      <div class="task-tabs" role="tablist" aria-label="Task filters">
-        <button class="active" type="button" role="tab" aria-selected="true" data-filter="active">Tasks</button>
-        <button type="button" role="tab" aria-selected="false" data-filter="attention">Needs you <span id="attentionCount" hidden>0</span></button>
-        <button type="button" role="tab" aria-selected="false" data-filter="archive">Archive</button>
-        <button class="task-search" id="searchButton" type="button" aria-label="Search tasks">⌕</button>
-      </div>
-      <h2 class="sr-only" id="tasksTitle">PolySwap tasks</h2>
-      <div class="status-banner" id="statusBanner" hidden></div>
-      <div class="notification-prompt" id="notificationPrompt" hidden>
-        <span>Get updates when jobs finish</span>
-        <button id="notificationButton" type="button">Turn on</button>
-      </div>
-      <div class="task-list" id="taskList" aria-live="polite"></div>
-    </section>
-
     <form class="job-composer" id="jobComposer">
       <label class="sr-only" for="jobPrompt">Ask anything or describe the work</label>
-      <textarea id="jobPrompt" rows="1" maxlength="8000" placeholder="Ask anything or describe the work" required></textarea>
+      <textarea id="jobPrompt" rows="2" maxlength="8000" placeholder="What should PolySwap do?" required></textarea>
       <div class="composer-bottom">
         <button class="composer-tool model-tool" id="modelButton" type="button" aria-haspopup="dialog">
           <img id="modelIcon" src="assets/polyswap-mark.png?v=2" alt="">
@@ -55,6 +39,28 @@
         </div>
       </div>
     </form>
+
+    <div class="status-banner" id="statusBanner" hidden></div>
+    <div class="notification-prompt" id="notificationPrompt" hidden>
+      <span>Get an alert when PolySwap is done or needs you</span>
+      <button id="notificationButton" type="button">Turn on</button>
+    </div>
+
+    <section class="job-group active-jobs" aria-labelledby="activeJobsTitle">
+      <header class="job-group-header">
+        <h2 id="activeJobsTitle">Active</h2>
+        <span id="activeCount">0</span>
+      </header>
+      <div class="task-list" id="activeJobList" aria-live="polite"></div>
+    </section>
+
+    <section class="job-group past-jobs" aria-labelledby="pastJobsTitle">
+      <header class="job-group-header">
+        <h2 id="pastJobsTitle">Past</h2>
+        <span id="pastCount">0</span>
+      </header>
+      <div class="task-list" id="pastJobList"></div>
+    </section>
   </main>
 
   <dialog class="sheet-dialog access-dialog" id="accessDialog">
@@ -132,11 +138,14 @@
   </dialog>
 
   <template id="taskTemplate">
-    <button class="task-row" type="button">
-      <span class="task-state"><i></i></span>
-      <span class="task-copy"><strong></strong><small></small></span>
-      <span class="task-meta"><em></em><time></time></span>
-    </button>
+    <article class="task-row">
+      <button class="task-summary" type="button" aria-expanded="false">
+        <span class="task-state"><i></i></span>
+        <span class="task-copy"><strong></strong><small></small></span>
+        <span class="task-meta"><em></em><time></time></span>
+      </button>
+      <div class="task-inline" hidden></div>
+    </article>
   </template>
 </body>
 </html>

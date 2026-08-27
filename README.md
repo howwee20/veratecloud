@@ -17,7 +17,8 @@ The public Chat path now includes:
 
 The mobile cloud alpha includes:
 
-- A phone-first task list with a compact, desktop-style composer at `mobile.html`
+- A single phone-first dispatch screen at `mobile.html`: composer, active jobs,
+  then past jobs, with no automatic Job Room navigation
 - One-tap model selection with server-enforced permission and cost defaults
 - Task, attention, and archive views with live checkpoints
 - One-time approval controls for consequential external actions
@@ -33,12 +34,13 @@ The mobile cloud alpha includes:
   receipt
 - Server-issued preflight quotes and enforced per-job cost ceilings
 - Home-screen Web Push subscriptions for closed-app completion alerts
-- A zero-cost media runtime that resolves music requests in the cloud and loads
-  the official YouTube player directly inside the mobile Job Room
+- A zero-cost media runtime that resolves music requests in the cloud and
+  publishes them to the durable iPhone playback session
 - A durable, versioned playback session with pause, resume, stop, skip, track
   changes, device heartbeats, and single-use iPhone pairing codes
-- A compiled SwiftUI/MusicKit iPhone client in `ios/PolySwapMobile` that follows
-  the cloud session and declares background audio playback
+- A compiled SwiftUI/WebKit/MusicKit iPhone client in `ios/PolySwapMobile` that
+  shows the same one-screen dashboard, connects its authenticated cloud session
+  to the native player, and declares background audio playback
 
 Open `https://polyswap.ai/mobile.html` on a phone for the private cloud alpha.
 For local UI work, serve this directory on port 4173 and open
@@ -58,10 +60,10 @@ non-executing demo mode.
   submit forms, send email, call people, purchase items, or change accounts. It
   may prepare a draft and returns `completed_unverified` instead of claiming
   that an outside action happened. Music requests are separate media jobs. The
-  cloud resolver publishes a durable playback revision, the PWA embeds the
-  official YouTube player for instant web playback, and the paired iPhone client
-  resolves the same request through MusicKit for background playback. iOS can
-  still require one tap before unmuted web playback begins.
+  cloud resolver publishes a durable playback revision, and the authenticated
+  iPhone client resolves that same request through MusicKit for background
+  playback. Safari alone is a job controller; it is not treated as a dependable
+  lock-screen audio runtime.
 - Physical iPhone playback requires signing the native target with a registered
   App ID whose MusicKit app service is enabled, then installing it directly or
   through TestFlight. The website and cloud controller deploy independently.

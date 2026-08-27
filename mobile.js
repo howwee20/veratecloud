@@ -64,8 +64,9 @@
     accessToken: sessionIsUsable ? localStorage.getItem(STORAGE.token) || "" : "",
     selectedModel: savedModel?.available ? savedModel : models[0],
     jobs: [],
-    filter: "active",
     activeJob: null,
+    expandedJobId: "",
+    jobDetails: new Map(),
     swapJobId: null,
     pollTimer: null,
     previousStatuses: new Map(),
@@ -73,7 +74,7 @@
     mediaPlayers: [],
     playback: null,
     playbackRevision: -1,
-    search: ""
+    pairingCode: ""
   };
 
   const els = {
@@ -84,9 +85,10 @@
     modelName: document.getElementById("modelLabel"),
     modelIcon: document.getElementById("modelIcon"),
     modelList: document.getElementById("modelOptions"),
-    taskList: document.getElementById("taskList"),
-    tabs: Array.from(document.querySelectorAll("[data-filter]")),
-    attentionCount: document.getElementById("attentionCount"),
+    activeList: document.getElementById("activeJobList"),
+    pastList: document.getElementById("pastJobList"),
+    activeCount: document.getElementById("activeCount"),
+    pastCount: document.getElementById("pastCount"),
     accessDialog: document.getElementById("accessDialog"),
     accessForm: document.getElementById("accessForm"),
     accessCode: document.getElementById("accessCode"),
@@ -99,7 +101,6 @@
     notificationPrompt: document.getElementById("notificationPrompt"),
     notifyButton: document.getElementById("notificationButton"),
     micButton: document.getElementById("voiceButton"),
-    searchButton: document.getElementById("searchButton"),
     modelClose: document.getElementById("modelClose"),
     taskClose: document.getElementById("taskClose"),
     taskDetailId: document.getElementById("taskDetailId"),
@@ -134,6 +135,12 @@
 
   localStorage.setItem(STORAGE.session, state.sessionId);
   if (!sessionIsUsable) localStorage.removeItem(STORAGE.token);
+
+  function connectNativeRuntime() {
+    const bridge = window.webkit?.messageHandlers?.polyswapNative;
+    if (!bridge || state.demo || !state.accessToken) return;
+    bridge.postMessage({ type: "connect", sessionId: state.sessionId, accessToken: state.accessToken });
+  }
 
   function createSessionId() {
     const suffix = typeof crypto.randomUUID === "function"
@@ -425,11 +432,14 @@
       renderJobs();
       updateNotificationPrompt();
       if (!quiet && state.demo) setRuntimeNote("Preview mode · no work is sent", "preview");
-      const activeUpdate = state.activeJob && state.jobs.find((job) => job.id === state.activeJob.id);
-      if (activeUpdate && activeUpdate.updatedAt !== state.activeJob.updatedAt) {
-        await openJob(activeUpdate.id, { preserveHash: true });
+      const expanded = state.expandedJobId && state.jobs.find((job) => job.id === state.expandedJobId);
+      const expandedDetail = expanded && state.jobDetails.get(expanded.id);
+      if (expanded && expanded.updatedAt !== expandedDetail?.updatedAt && !state.demo) {
+        const detail = await api("/v1/jobs/" + encodeURIComponent(expanded.id) + "?sessionId=" + encodeURIComponent(state.sessionId));
+        state.jobDetails.set(expanded.id, detail.job);
+        renderJobs();
       }
-      openJobFromHash();
+      focusJobFromHash();
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
         state.accessToken = "";
@@ -447,7 +457,7 @@
       state.playback = payload.playback;
       state.playbackRevision = Number(payload.playback?.revision || 0);
       if (previousRevision >= 0 && state.playbackRevision !== previousRevision) applyPlaybackToWebPlayers(payload.playback);
-      if (state.activeJob?.kind === "media") renderPlaybackControls(state.activeJob);
+      if (state.expandedJobId) renderJobs();
     } catch (error) {
       if (!options?.quiet) setRuntimeNote("The player could not connect · " + error.message, "error");
     }
@@ -470,10 +480,10 @@
       const previous = state.previousStatuses.get(job.id);
       if (previous && previous !== job.status && (job.status === "ready" || ATTENTION.has(job.status) || TERMINAL.has(job.status))) {
         const body = job.status === "ready"
-          ? "Your player is ready inside PolySwap."
+          ? "Your music is ready on the paired iPhone player."
           : ATTENTION.has(job.status)
-          ? "PolySwap needs your approval to continue."
-          : job.status === "completed" ? "Your job is done. Tap to see the receipt." : "Your job stopped. Tap for details.";
+          ? "PolySwap needs one answer to continue."
+          : job.status === "completed" ? "Your job is done and is now under Past." : "Your job stopped. Tap to expand it.";
         showNotification(job.title, body, job.id);
       }
       state.previousStatuses.set(job.id, job.status);
@@ -499,57 +509,199 @@
     }
   }
 
-  function filteredJobs() {
-    return state.jobs.filter((job) => {
-      const matchesSearch = !state.search || (job.title + " " + job.goal).toLowerCase().includes(state.search);
-      if (!matchesSearch) return false;
-      if (state.filter === "attention") return ATTENTION.has(job.status);
-      if (state.filter === "archive") return TERMINAL.has(job.status);
-      return !TERMINAL.has(job.status);
-    });
+  function renderJobs() {
+    const active = state.jobs.filter((job) => !TERMINAL.has(job.status));
+    const past = state.jobs.filter((job) => TERMINAL.has(job.status));
+    renderJobGroup(els.activeList, active, "Send a job above. It will keep running here after you leave.");
+    renderJobGroup(els.pastList, past, "Finished jobs will appear here.");
+    els.activeCount.textContent = String(active.length);
+    els.pastCount.textContent = String(past.length);
   }
 
-  function renderJobs() {
-    const jobs = filteredJobs();
-    els.taskList.replaceChildren();
-    jobs.forEach((job) => els.taskList.appendChild(renderJob(job)));
+  function renderJobGroup(list, jobs, emptyMessage) {
+    list.replaceChildren();
+    jobs.forEach((job) => list.appendChild(renderJob(job)));
     if (!jobs.length) {
       const empty = document.createElement("p");
       empty.className = "empty-tasks";
-      empty.textContent = state.search ? "No jobs match that search." : state.filter === "attention" ? "Nothing needs you right now." : state.filter === "archive" ? "Completed jobs will appear here." : "Send a job below.";
-      els.taskList.appendChild(empty);
+      empty.textContent = emptyMessage;
+      list.appendChild(empty);
     }
-    const attention = state.jobs.filter((job) => ATTENTION.has(job.status)).length;
-    els.attentionCount.textContent = attention || "";
-    els.attentionCount.hidden = !attention;
-    els.tabs.forEach((tab) => {
-      const active = tab.dataset.filter === state.filter;
-      tab.classList.toggle("active", active);
-      tab.setAttribute("aria-selected", String(active));
-    });
   }
 
   function renderJob(job) {
     const node = els.taskTemplate.content.firstElementChild.cloneNode(true);
+    const summary = node.querySelector(".task-summary");
+    const inline = node.querySelector(".task-inline");
     const model = findModel(job.modelId) || { short: job.modelId?.split("/").pop() || "Model" };
     node.dataset.jobId = job.id;
     node.dataset.status = job.status;
     node.querySelector(".task-copy strong").textContent = job.title || titleFor(job.goal || "Untitled job");
-    node.querySelector(".task-copy small").textContent = job.kind === "media" && job.status === "ready"
-      ? "Tap to play inside PolySwap"
-      : job.kind === "phone"
-      ? "Tap to choose where it opens"
-      : plainJobUpdate(job) + " · " + model.short;
+    node.querySelector(".task-copy small").textContent = plainJobUpdate(job) + " · " + model.short;
     node.querySelector(".task-meta em").textContent = job.kind === "phone" && job.status === "waiting_for_human" ? "Ready" : statusLabel(job.status);
     node.querySelector(".task-meta time").textContent = timeLabel(job.updatedAt || job.createdAt);
-    node.addEventListener("click", () => openJob(job.id));
+    const expanded = state.expandedJobId === job.id;
+    summary.setAttribute("aria-expanded", String(expanded));
+    inline.hidden = !expanded;
+    if (expanded) renderInlineJob(inline, state.jobDetails.get(job.id) || job);
+    summary.addEventListener("click", () => toggleInlineJob(job.id));
     return node;
+  }
+
+  function renderInlineJob(container, job) {
+    container.replaceChildren();
+
+    const update = document.createElement("p");
+    update.className = "inline-update";
+    update.textContent = job.currentInstruction || plainJobUpdate(job) + ".";
+    container.appendChild(update);
+
+    const pending = (job.approvals || []).find((approval) => approval.status === "pending");
+    if (pending) {
+      const attention = document.createElement("section");
+      attention.className = "inline-attention";
+      const title = document.createElement("strong");
+      title.textContent = pending.title || pending.action || "PolySwap needs you";
+      const detail = document.createElement("p");
+      detail.textContent = pending.description || pending.summary || "Approve this one action so the job can continue.";
+      const actions = document.createElement("div");
+      actions.className = "inline-actions";
+      actions.append(
+        actionButton("Deny", "quiet", () => actOnJob(job, "deny", { approvalId: pending.id })),
+        actionButton("Allow once", "primary", () => actOnJob(job, "approve", { approvalId: pending.id }))
+      );
+      attention.append(title, detail, actions);
+      container.appendChild(attention);
+    }
+
+    if (job.kind === "media") renderInlinePlayback(container, job);
+
+    const result = job.resultSummary || job.receipt?.summary || "";
+    if (result && job.kind !== "media") {
+      const receipt = document.createElement("section");
+      receipt.className = "inline-result";
+      const label = document.createElement("small");
+      label.textContent = "Result";
+      const text = document.createElement("p");
+      text.textContent = result;
+      receipt.append(label, text);
+      (job.receipt?.evidence || []).slice(0, 8).forEach((evidence) => {
+        if (typeof evidence !== "object" || !evidence.url || evidence.url === "#") return;
+        const link = document.createElement("a");
+        link.href = evidence.url;
+        link.target = "_blank";
+        link.rel = "noopener";
+        link.textContent = evidence.label || "Open evidence";
+        receipt.appendChild(link);
+      });
+      container.appendChild(receipt);
+    }
+
+    const controls = document.createElement("div");
+    controls.className = "inline-actions inline-job-actions";
+    if (TERMINAL.has(job.status)) {
+      controls.appendChild(actionButton("Run again", "primary", () => duplicateJob(job)));
+    } else if (job.kind !== "media") {
+      controls.append(
+        actionButton("Change model", "primary", () => {
+          state.swapJobId = job.id;
+          renderModels();
+          els.modelDialog.showModal();
+        }),
+        actionButton(job.status === "paused" ? "Resume" : "Pause", "quiet", () => actOnJob(job, job.status === "paused" ? "resume" : "pause")),
+        actionButton("Cancel", "danger", () => actOnJob(job, "cancel"))
+      );
+    }
+    if (controls.children.length) container.appendChild(controls);
+  }
+
+  function renderInlinePlayback(container, job) {
+    const playback = state.playback;
+    const connected = Boolean(playback?.device?.connected);
+    const card = document.createElement("section");
+    card.className = connected ? "inline-player connected" : "inline-player";
+    const title = document.createElement("strong");
+    title.textContent = connected
+      ? playback.desiredState === "paused" ? "Paused on this iPhone" : "Playing on this iPhone"
+      : "Connect this iPhone once";
+    const detail = document.createElement("p");
+    detail.textContent = connected
+      ? "You can lock the screen or leave PolySwap. New music commands go to the same player."
+      : "The cloud job is ready. Connect the native PolySwap player so audio survives Safari closing.";
+    card.append(title, detail);
+
+    if (connected) {
+      const actions = document.createElement("div");
+      actions.className = "inline-actions";
+      actions.append(
+        actionButton(playback.desiredState === "paused" ? "Resume" : "Pause", "quiet", () => sendPlaybackCommand(playback.desiredState === "paused" ? "resume" : "pause")),
+        actionButton("Next", "quiet", () => sendPlaybackCommand("next"))
+      );
+      card.appendChild(actions);
+    } else {
+      const actions = document.createElement("div");
+      actions.className = "inline-actions";
+      const install = document.createElement("a");
+      install.className = "inline-button quiet";
+      install.href = "/ios/install/";
+      install.textContent = "Install player";
+      actions.append(install, actionButton(state.pairingCode ? "New code" : "Get pairing code", "primary", createPlayerPairing));
+      card.appendChild(actions);
+      if (state.pairingCode) {
+        const code = document.createElement("p");
+        code.className = "inline-pairing-code";
+        code.textContent = state.pairingCode;
+        card.appendChild(code);
+      }
+    }
+    if (playback?.error) {
+      const error = document.createElement("p");
+      error.className = "inline-error";
+      error.textContent = playback.error;
+      card.appendChild(error);
+    }
+    container.appendChild(card);
+  }
+
+  function actionButton(label, tone, handler) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "inline-button " + tone;
+    button.textContent = label;
+    button.addEventListener("click", async () => {
+      button.disabled = true;
+      try { await handler(); } finally { button.disabled = false; }
+    });
+    return button;
+  }
+
+  async function toggleInlineJob(jobId, options) {
+    if (state.expandedJobId === jobId && !options?.forceOpen) {
+      state.expandedJobId = "";
+      renderJobs();
+      return;
+    }
+    state.expandedJobId = jobId;
+    try {
+      if (!state.demo) {
+        const payload = await api("/v1/jobs/" + encodeURIComponent(jobId) + "?sessionId=" + encodeURIComponent(state.sessionId));
+        state.jobDetails.set(jobId, payload.job);
+        replaceJob(payload.job);
+      } else {
+        const job = state.jobs.find((item) => item.id === jobId);
+        if (job) state.jobDetails.set(jobId, job);
+      }
+    } catch (error) {
+      setRuntimeNote("Could not refresh that job · " + error.message, "error");
+    }
+    renderJobs();
+    window.setTimeout(() => document.querySelector('[data-job-id="' + CSS.escape(jobId) + '"]')?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 0);
   }
 
   function plainJobUpdate(job) {
     if (job.status === "queued") return "Waiting to start";
     if (job.status === "running" || job.status === "background" || job.status === "recovering") return "Working";
-    if (job.status === "ready") return "Ready to play";
+    if (job.status === "ready") return state.playback?.device?.connected ? "Playing on this iPhone" : "Ready";
     if (ATTENTION.has(job.status)) return "Waiting for you";
     if (job.status === "completed") return "Done";
     if (job.status === "completed_unverified") return "Ready to review";
@@ -644,7 +796,6 @@
     updateComposer();
     renderJobs();
     updateNotificationPrompt();
-    await openJob(job.id);
   }
 
   function advanceDemo(jobId) {
@@ -654,9 +805,9 @@
     job.currentInstruction = "Previewing how the PolySwap harness would claim and execute this job.";
     job.updatedAt = new Date().toISOString();
     job.events.push({ type: "claimed", message: "Preview runtime claimed the job.", createdAt: job.updatedAt });
+    state.jobDetails.set(job.id, job);
     persistDemo();
     renderJobs();
-    if (state.activeJob?.id === jobId) openJob(jobId, { preserveHash: true });
   }
 
   function renderModels() {
@@ -843,9 +994,8 @@
       if (payload.job) {
         replaceJob(payload.job);
         renderJobs();
-        await openJob(payload.job.id);
-      } else if (state.activeJob) {
-        renderPlaybackControls(state.activeJob);
+      } else {
+        renderJobs();
         applyPlaybackToWebPlayers(state.playback);
       }
     } catch (error) {
@@ -871,9 +1021,8 @@
         method: "POST",
         body: JSON.stringify({ sessionId: state.sessionId })
       });
-      els.pairingCode.querySelector("strong").textContent = payload.code;
-      els.pairingCode.hidden = false;
-      els.pairPlayer.textContent = "Make a new code";
+      state.pairingCode = payload.code;
+      renderJobs();
     } catch (error) {
       setRuntimeNote("Could not make a pairing code · " + error.message, "error");
     }
@@ -1057,8 +1206,8 @@
           body: JSON.stringify({ sessionId: state.sessionId, action, ...(extra || {}) })
         });
         replaceJob(payload.job);
+        state.jobDetails.set(job.id, payload.job);
       }
-      await openJob(job.id, { preserveHash: true });
       renderJobs();
     } catch (error) {
       setRuntimeNote("Could not update the job · " + error.message, "error");
@@ -1106,9 +1255,9 @@
           })
         });
         replaceJob(payload.job);
+        state.jobDetails.set(jobId, payload.job);
       }
       renderJobs();
-      await openJob(jobId, { preserveHash: true });
       setRuntimeNote("Intelligence swapped to " + model.name + " · work context preserved", state.demo ? "preview" : "success");
     } catch (error) {
       setRuntimeNote("Could not swap intelligence · " + error.message, "error");
@@ -1122,7 +1271,7 @@
   }
 
   function duplicateJob(job) {
-    els.taskDialog.close();
+    state.expandedJobId = "";
     els.prompt.value = job.goal;
     const model = findModel(job.modelId);
     if (model?.available) state.selectedModel = model;
@@ -1143,6 +1292,7 @@
       });
       state.accessToken = payload.accessToken;
       localStorage.setItem(STORAGE.token, payload.accessToken);
+      connectNativeRuntime();
       els.accessError.textContent = "";
       els.accessError.hidden = true;
       els.accessDialog.close();
@@ -1166,11 +1316,13 @@
     loadJobs();
   }
 
-  function openJobFromHash() {
+  function focusJobFromHash() {
     const match = window.location.hash.match(/^#job=(.+)$/);
-    if (!match || els.taskDialog.open) return;
+    if (!match) return;
     const id = decodeURIComponent(match[1]);
-    if (state.jobs.some((job) => job.id === id)) openJob(id, { preserveHash: true });
+    if (!state.jobs.some((job) => job.id === id)) return;
+    history.replaceState(null, "", window.location.pathname + window.location.search);
+    toggleInlineJob(id, { forceOpen: true });
   }
 
   function base64UrlBytes(value) {
@@ -1250,15 +1402,10 @@
       renderModels();
       els.modelDialog.showModal();
     });
-    els.tabs.forEach((tab) => tab.addEventListener("click", () => {
-      state.filter = tab.dataset.filter;
-      renderJobs();
-    }));
     els.accessForm.addEventListener("submit", submitAccess);
     els.previewButton.addEventListener("click", enterPreview);
     els.notifyButton.addEventListener("click", requestNotifications);
     els.micButton.addEventListener("click", startDictation);
-    els.searchButton.addEventListener("click", searchJobs);
     els.playbackComposer.addEventListener("submit", submitPlaybackCommand);
     els.playbackPause.addEventListener("click", () => sendPlaybackCommand(state.playback?.desiredState === "paused" ? "resume" : "pause"));
     els.playbackNext.addEventListener("click", () => sendPlaybackCommand("next"));
@@ -1275,7 +1422,7 @@
       state.activeJob = null;
       if (window.location.hash.startsWith("#job=")) history.replaceState(null, "", window.location.pathname + window.location.search);
     });
-    window.addEventListener("hashchange", openJobFromHash);
+    window.addEventListener("hashchange", focusJobFromHash);
   }
 
   async function registerServiceWorker() {
@@ -1296,6 +1443,7 @@
     }
     await registerServiceWorker();
     await loadModels();
+    connectNativeRuntime();
     if (!state.demo && !state.accessToken) {
       showAccess();
       return;

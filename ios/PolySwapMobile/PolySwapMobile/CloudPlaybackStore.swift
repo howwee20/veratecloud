@@ -38,6 +38,19 @@ final class CloudPlaybackStore: ObservableObject {
     func start(player: MusicPlaybackController) async {
         self.player = player
         guard isPaired else { return }
+        await player.prepare()
+        beginPolling()
+    }
+
+    func connect(sessionId: String, accessToken: String, player: MusicPlaybackController) async {
+        let cleanSession = sessionId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let cleanToken = accessToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cleanSession.hasPrefix("anon_"), !cleanToken.isEmpty else { return }
+        self.player = player
+        self.sessionId = cleanSession
+        self.accessToken = cleanToken
+        message = "Connected to PolySwap Cloud."
+        await player.prepare()
         beginPolling()
     }
 
