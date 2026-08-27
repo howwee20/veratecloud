@@ -3,164 +3,151 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#ffffff">
-  <meta name="description" content="PolySwap — one workspace for every intelligence.">
-  <meta name="polyswap-api" content="https://polyswap-api.polyswap.workers.dev">
-  <title>PolySwap</title>
+  <meta name="theme-color" content="#f7f6f1">
+  <meta name="description" content="PolySwap keeps the work intact while intelligence changes around it.">
+  <title>PolySwap — Interchangeable intelligence</title>
   <link rel="icon" type="image/png" href="assets/polyswap-mark.png?v=2">
   <link rel="apple-touch-icon" href="assets/polyswap-mark.png?v=2">
-  <link rel="stylesheet" href="styles.css?v=public-carousel-removed-1">
-  <script src="app.js?v=public-carousel-removed-1" defer></script>
+  <link rel="stylesheet" href="baseline.css?v=poolside-baseline-2">
+  <script src="site.js?v=poolside-baseline-2" defer></script>
 </head>
-<body>
-  <header class="site-header" id="top">
-    <a class="brand" href="#top" aria-label="PolySwap home">
-      <span class="brand-mark" aria-hidden="true">
-        <i class="brand-orb brand-orb-pink"></i>
-        <i class="brand-orb brand-orb-orange"></i>
-        <i class="brand-orb brand-orb-yellow"></i>
-        <i class="brand-orb brand-orb-green"></i>
-        <i class="brand-orb brand-orb-blue"></i>
-        <i class="brand-orb brand-orb-purple"></i>
-      </span>
-      <span>PolySwap</span>
-    </a>
-    <a class="download-nav" href="download.html">Download</a>
+<body id="top">
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="mobile-bar">
+    <a class="brand" href="#top" aria-label="PolySwap home"><img src="assets/polyswap-mark.png?v=2" alt=""><span>PolySwap</span></a>
+    <button class="menu-toggle" type="button" aria-expanded="false" aria-label="Open navigation"><span></span><span></span><i class="sr-only">Menu</i></button>
   </header>
 
-  <main class="product-shell">
-    <section class="experience" id="product" aria-label="PolySwap product">
-      <div class="conversation" id="conversation" aria-live="polite"></div>
+  <aside class="site-rail" aria-label="Primary navigation">
+    <a class="brand" href="#top" aria-label="PolySwap home"><img src="assets/polyswap-mark.png?v=2" alt=""><span>PolySwap</span></a>
+    <nav class="site-nav">
+      <a href="#intelligence">Intelligence</a>
+      <a href="#artifacts">Work record</a>
+      <a href="#system">Get started</a>
+      <a href="mobile.html">Open PolySwap</a>
+      <a href="download.html">Download</a>
+      <a href="mailto:hello@polyswap.ai">Contact</a>
+    </nav>
+  </aside>
 
-      <div class="composer-wrap" id="system">
-        <form class="composer" id="composer">
-          <div class="model-menu" id="modelMenu" role="dialog" aria-label="Choose a model" hidden>
-            <div class="model-search-row">
-              <label class="model-search">
-                <svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8.5" cy="8.5" r="5.5" /><path d="m13 13 4 4" /></svg>
-                <input id="modelSearch" type="search" placeholder="Search models or providers" autocomplete="off">
-              </label>
-              <button class="model-menu-close" id="modelMenuClose" type="button" aria-label="Close model picker">
-                <svg viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8" /></svg>
-              </button>
-            </div>
-            <div class="model-filter-bar" aria-label="Model filters">
-              <button class="active" data-catalog-filter="all" type="button">Models</button>
-              <button data-catalog-filter="free" type="button">Free</button>
-              <button data-catalog-filter="paid" type="button">Paid</button>
-            </div>
-            <div class="model-options" id="modelOptions"></div>
-          </div>
-
-          <div class="composer-control-bar" role="toolbar" aria-label="Model, effort, speed, and chats">
-            <button class="composer-control composer-control-model" id="modelPolicyRow" type="button" aria-haspopup="dialog" aria-expanded="false" aria-controls="modelMenu">
-              <span class="policy-model-mark auto-mark" aria-hidden="true"><img src="assets/polyswap-mark.png?v=2" alt=""></span>
-              <span class="composer-control-copy"><small>Model</small><strong id="modelPolicyValue">Auto</strong></span>
-              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3" /></svg>
-            </button>
-            <button class="composer-control composer-control-hover-only" id="effortPolicyRow" type="button">
-              <span class="composer-control-copy"><small>Effort</small><strong id="effortPolicyValue">Standard</strong></span>
-            </button>
-            <button class="composer-control composer-control-hover-only" id="speedPolicyRow" type="button">
-              <span class="composer-control-copy"><small>Speed</small><strong id="speedPolicyValue">Standard</strong></span>
-            </button>
-            <button class="composer-history-button" id="historyButton" type="button" aria-label="Open chats" aria-haspopup="dialog" aria-expanded="false" aria-controls="historyDrawer" title="Chats in this browser">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5.5h12M4 10h12M4 14.5h8" /></svg>
-            </button>
-          </div>
-
-          <div class="work-policy-submenu" id="effortMenu" role="menu" aria-label="Choose effort" hidden>
-            <p>Effort</p>
-            <button type="button" role="menuitemradio" data-effort="quick"><span><strong>Quick</strong><small>Direct response</small></span><i aria-hidden="true">✓</i></button>
-            <button type="button" role="menuitemradio" data-effort="standard"><span><strong>Standard</strong><small>Balanced work</small></span><i aria-hidden="true">✓</i></button>
-            <button type="button" role="menuitemradio" data-effort="deep"><span><strong>Deep</strong><small>Thorough and verified</small></span><i aria-hidden="true">✓</i></button>
-          </div>
-
-          <div class="work-policy-submenu speed-policy-menu" id="speedMenu" role="menu" aria-label="Choose speed" hidden>
-            <p>Speed</p>
-            <button type="button" role="menuitemradio" data-speed="standard"><span><strong>Standard</strong><small>Normal delivery</small></span><i aria-hidden="true">✓</i></button>
-            <button type="button" role="menuitemradio" data-speed="fast"><span><strong>Fast</strong><small>Priority delivery</small></span><i aria-hidden="true">✓</i></button>
-          </div>
-
-          <div class="history-panel" id="historyDrawer" role="dialog" aria-label="Your chats" hidden>
-            <div class="history-head">
-              <div>
-                <strong>Your chats</strong>
-                <span>Stored in this browser</span>
-              </div>
-              <button id="historyCloseButton" type="button" aria-label="Close chats">×</button>
-            </div>
-            <button class="new-chat-button" id="newChatButton" type="button">
-              <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12" /></svg>
-              New chat
-            </button>
-            <div class="thread-list" id="threadList"></div>
-          </div>
-
-          <textarea id="prompt" rows="3" placeholder="Ask anything or describe the work" aria-label="Message PolySwap"></textarea>
-
-          <div class="attachment-row" id="attachmentRow" hidden></div>
-          <div class="composer-foot">
-            <input id="fileInput" type="file" accept="image/*,.txt,.md,.json,.csv,.js,.ts,.tsx,.jsx,.py,.html,.css,.xml,.yaml,.yml" multiple hidden>
-            <button class="icon-button" id="attachButton" type="button" aria-label="Add files" title="Add files">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
-            </button>
-            <span class="local-state" id="localState"></span>
-            <button class="submit-button" id="submitButton" type="submit" disabled aria-label="Send message">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6.5 10.5 12 5l5.5 5.5" /></svg>
-            </button>
-          </div>
-        </form>
-
-        <div class="composer-hover-preview" id="composerHoverPreview" aria-live="polite" hidden>
-          <div class="composer-hover-preview-head">
-            <strong id="composerHoverPreviewTitle"></strong>
-            <div class="hover-model-filters" id="hoverModelFilters" aria-label="Model filters" hidden>
-              <button class="active" type="button" data-hover-model-filter="all">Models</button>
-              <button type="button" data-hover-model-filter="free">Free</button>
-              <button type="button" data-hover-model-filter="paid">Paid</button>
-            </div>
-          </div>
-          <div class="composer-hover-preview-wheel" id="composerHoverPreviewWheel"></div>
-        </div>
-
-        <div class="prompt-examples" id="promptExamples" aria-label="Example prompts">
-          <button type="button" data-example-prompt="Summarize this PDF">Summarize this PDF</button>
-          <button type="button" data-example-prompt="Write code">Write code</button>
-          <button type="button" data-example-prompt="Research a company">Research a company</button>
-        </div>
+  <main class="site-main" id="main">
+    <section class="hero" aria-labelledby="hero-title">
+      <h1 id="hero-title">Work with any intelligence.<br>Keep the same job.</h1>
+      <div class="hero-actions">
+        <a class="button button-primary" href="https://github.com/howwee20/polyswap-releases/releases/latest/download/PolySwap-macOS-Apple-Silicon.dmg">Download for macOS <span>↓</span></a>
+        <a class="button" href="https://github.com/howwee20/polyswap-releases/releases/latest/download/PolySwap-Windows-x64-Setup.exe">Download for Windows <span>↓</span></a>
+        <a class="button" href="mobile.html">Open PolySwap on your phone <span>→</span></a>
       </div>
 
-      <footer class="site-footer" aria-label="Footer">
-        <button type="button" data-footer-info="privacy">Privacy</button>
-        <button type="button" data-footer-info="terms">Terms</button>
-        <button type="button" data-footer-info="pricing">Pricing</button>
-        <button type="button" data-footer-info="docs">Docs</button>
-        <a href="mailto:hello@polyswap.ai">Contact</a>
-      </footer>
+      <div class="product-stage" id="product" aria-label="Animated PolySwap product preview">
+        <div class="app-window" data-product-demo data-mode="home" data-site="google">
+          <div class="window-bar">
+            <div class="traffic-lights" aria-hidden="true"><i></i><i></i><i></i></div>
+            <span>polyswap — work</span>
+            <small data-demo-stage>Ready</small>
+          </div>
+          <div class="real-app-grid">
+            <section class="real-workspace" aria-label="Animated preview of the PolySwap workspace">
+              <span class="demo-back" aria-hidden="true">‹</span>
+              <div class="demo-home-state">
+                <div class="demo-orb" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+                <div class="demo-prompts"><span>Find something</span><span>Create something</span><span>Improve my work</span></div>
+              </div>
+              <div class="demo-work-state">
+                <div class="demo-prior-answer"><p>I can navigate the browser, inspect what is visible, and keep the work in this conversation.</p><small>7:36 PM</small></div>
+                <p class="demo-user-message" data-demo-request>Find the best current AI tools for building this product.</p>
+                <div class="demo-answer"><small data-demo-work-time>Worked for 8s ›</small><p data-demo-response>I searched Google and opened the strongest sources in the browser.</p></div>
+              </div>
+              <div class="real-composer">
+                <p>Ask anything or describe the work</p>
+                <div><span class="composer-chat">＋ <b>Chats</b></span><span class="composer-model"><img src="assets/providers/gemini.svg" alt=""><b data-demo-model>Google: Gemini 3.7 Flash</b></span><i>↑</i></div>
+              </div>
+            </section>
+            <aside class="real-browser-pane" aria-label="PolySwap browser pane">
+              <div class="browser-toolbar"><span>‹</span><span>›</span><div class="browser-address"><i></i><small data-demo-address>google.com</small></div><span>↻</span><span>×</span></div>
+              <div class="browser-tabs"><span><em data-demo-tab>Google</em><b>×</b></span><i>＋</i></div>
+              <div class="browser-canvas">
+                <section class="browser-site browser-site-google"><img src="assets/site-captures/google.png" alt="Google homepage"></section>
+                <section class="browser-site browser-site-cursor"><img src="assets/site-captures/cursor.png" alt="Cursor homepage"></section>
+                <section class="browser-site browser-site-doordash"><img src="assets/site-captures/doordash.png" alt="DoorDash homepage"></section>
+                <section class="browser-site browser-site-github"><img src="assets/site-captures/github.png" alt="PolySwap release on GitHub"></section>
+                <section class="browser-site browser-site-youtube"><img src="assets/site-captures/youtube.png" alt="YouTube search results"></section>
+                <span class="browser-cursor"></span>
+              </div>
+            </aside>
+          </div>
+        </div>
+      </div>
     </section>
+
+    <section class="pool-section intelligence-section" id="intelligence" aria-labelledby="intelligence-title">
+      <h2 id="intelligence-title"><strong>Use the right intelligence for the job.</strong> Change it whenever the work changes.</h2>
+      <div class="intelligence-grid">
+        <article class="intelligence-card">
+          <div class="constellation" aria-hidden="true">
+            <span class="orbit orbit-one"></span><span class="orbit orbit-two"></span><span class="orbit orbit-three"></span>
+            <img class="constellation-core" src="assets/polyswap-mark.png?v=2" alt="">
+            <img src="assets/providers/openai.svg" alt=""><img src="assets/providers/anthropic.svg" alt=""><img src="assets/providers/gemini.svg" alt=""><img src="assets/providers/deepseek.svg" alt=""><img src="assets/providers/kimi.svg" alt="">
+          </div>
+          <div class="card-copy"><h3>Auto <span>recommended</span></h3><p>PolySwap selects the intelligence that fits the job, then keeps the decision visible.</p><small>Scope / speed / cost / trust</small></div>
+        </article>
+        <article class="intelligence-card">
+          <div class="provider-list" aria-label="Available intelligence examples">
+            <div class="provider-list-head"><span>Choose intelligence</span><small>Available</small></div>
+            <div class="model-row selected"><img src="assets/providers/openai.svg" alt=""><span><strong>GPT</strong><small>OpenAI</small></span><i></i></div>
+            <div class="model-row"><img src="assets/providers/anthropic.svg" alt=""><span><strong>Claude</strong><small>Anthropic</small></span><i></i></div>
+            <div class="model-row"><img src="assets/providers/gemini.svg" alt=""><span><strong>Gemini</strong><small>Google</small></span><i></i></div>
+            <div class="model-row"><img src="assets/providers/deepseek.svg" alt=""><span><strong>DeepSeek</strong><small>DeepSeek</small></span><i></i></div>
+            <div class="model-row"><img src="assets/providers/kimi.svg" alt=""><span><strong>Kimi</strong><small>Moonshot AI</small></span><i></i></div>
+          </div>
+          <div class="card-copy"><h3>Direct <span>swap</span></h3><p>Choose the worker yourself, or change it after the job has already started.</p><small>Same context / files / history</small></div>
+        </article>
+      </div>
+      <a class="section-link" href="mailto:hello@polyswap.ai?subject=PolySwap%20Cloud%20beta">Bring a job to PolySwap <span>→</span></a>
+    </section>
+
+    <section class="pool-section editorial-section" id="artifacts" aria-labelledby="artifacts-title">
+      <h2 id="artifacts-title"><strong>The job is the durable object.</strong> Context, permissions, spend, artifacts, and proof stay together.</h2>
+      <article class="editorial-feature">
+        <div class="record-art" aria-hidden="true">
+          <div class="record-card">
+            <header><span>Work record</span><small>PS-1842</small></header>
+            <ol><li class="done"><i>01</i><span>Scope</span><b>✓</b></li><li class="done"><i>02</i><span>Authorize</span><b>✓</b></li><li class="active"><i>03</i><span>Run</span><b>•••</b></li><li><i>04</i><span>Verify</span><b></b></li></ol>
+          </div>
+        </div>
+        <div class="editorial-feature-copy"><h3>One record for the entire run</h3><p>Every worker reads from the same job. Every action writes back to it. The record survives model changes, device changes, and time away.</p></div>
+      </article>
+      <div class="article-grid">
+        <article><time>01 / STATE</time><h3>Resume without reconstruction</h3><p>Progress and checkpoints show exactly where the next worker begins.</p></article>
+        <article><time>02 / CONTROL</time><h3>Set the boundary before action</h3><p>Scope, time, and maximum cost are visible before work starts.</p></article>
+        <article><time>03 / PROOF</time><h3>Inspect what “done” means</h3><p>Artifacts, checks, elapsed time, and actual cost return with the result.</p></article>
+      </div>
+      <a class="section-link" href="#system">See how PolySwap runs <span>→</span></a>
+    </section>
+
+    <section class="pool-section destinations-section" id="system" aria-labelledby="system-title">
+      <h2 id="system-title"><strong>Use PolySwap your way.</strong> Start in the cloud, on your computer, or with your own systems.</h2>
+      <div class="destination-grid">
+        <a class="destination-card" href="mobile.html">
+          <div class="destination-art cloud-art" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div><h3>Send a job from anywhere.</h3><p>Open PolySwap Cloud <span>→</span></p></div>
+        </a>
+        <a class="destination-card" href="download.html">
+          <div class="destination-art desktop-art" aria-hidden="true"><span><i></i><i></i><i></i><b></b></span></div>
+          <div><h3>Run PolySwap on your computer.</h3><p>Download desktop <span>→</span></p></div>
+        </a>
+        <a class="destination-card" href="mailto:hello@polyswap.ai">
+          <div class="destination-art systems-art" aria-hidden="true"><span></span><i></i><i></i><i></i></div>
+          <div><h3>Connect PolySwap to your systems.</h3><p>Talk with us <span>→</span></p></div>
+        </a>
+      </div>
+    </section>
+
+    <footer class="site-footer">
+      <div class="footer-links"><div><a href="mobile.html">Open PolySwap</a><a href="download.html">Download</a><a href="mailto:hello@polyswap.ai">Contact</a></div><div><a href="#intelligence">Intelligence</a><a href="#artifacts">Work record</a><a href="#system">Get started</a></div><span>© 2026 PolySwap</span></div>
+      <a class="footer-wordmark" href="#top" aria-label="PolySwap — back to top"><span>polyswap</span></a>
+    </footer>
   </main>
-
-  <dialog class="signin-dialog access-dialog" id="signInDialog">
-    <form id="accessForm">
-      <button class="dialog-close" id="accessDialogClose" type="button" aria-label="Close access dialog">×</button>
-      <img src="assets/polyswap-mark.png?v=2" alt="">
-      <h2>Enter invite code</h2>
-      <p>Use your private invite code. Your chats stay on this browser; prompts and model responses are recorded in PolySwap's private launch log for support.</p>
-      <label class="access-code-label" for="accessCodeInput">Invite code</label>
-      <input class="access-code-input" id="accessCodeInput" type="password" autocomplete="one-time-code" placeholder="Enter code" required>
-      <p class="access-error" id="accessError" role="alert"></p>
-      <button class="dialog-primary" id="accessSubmitButton" type="submit">Continue</button>
-    </form>
-  </dialog>
-
-  <dialog class="info-dialog" id="infoDialog" aria-labelledby="infoDialogTitle">
-    <form method="dialog">
-      <button class="dialog-close" value="close" aria-label="Close information dialog">×</button>
-      <h2 id="infoDialogTitle"></h2>
-      <p id="infoDialogBody"></p>
-      <button class="dialog-primary" value="close">Done</button>
-    </form>
-  </dialog>
 </body>
 </html>

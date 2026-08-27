@@ -15,15 +15,55 @@ The public Chat path now includes:
 - Text and image attachments within documented browser-side size limits
 - Automatic catalog refresh on each page load
 
+The mobile cloud alpha includes:
+
+- A phone-first durable job composer at `mobile.html`
+- Per-job intelligence, privacy route, permission profile, and cost ceiling
+- Task, attention, and archive views with live checkpoints
+- One-time approval controls for consequential external actions
+- Intelligence swapping that requeues the same work record and checkpoint
+- Completion receipts with actual cost and evidence
+- A Worker/D1 durable job queue, automatic recovery, and revocable runner-lease
+  endpoints
+- A bounded Cloudflare runner for read-only web research, analysis, and drafting
+- Server-issued preflight quotes and enforced per-job cost ceilings
+- Home-screen Web Push subscriptions for closed-app completion alerts
+
+Open `https://polyswap.ai/mobile.html` on a phone for the private cloud alpha.
+For local UI work, serve this directory on port 4173 and open
+`http://127.0.0.1:4173/mobile.html?demo=1` for the clearly labeled,
+non-executing demo mode.
+
 ## Current alpha boundary
 
 - The provider credential is server-side and is never shipped to the browser.
 - The Worker enforces the shared launch budget, stores prompts and responses,
   and exposes an authenticated operator readback endpoint.
-- Agent mode is deliberately gated. It does not claim execution until isolated
-  hosted workers, durable projects, a run queue, and artifact storage are live.
+- The durable job record, queue, model handoff, budgets, events, receipts, and
+  migrations are deployed. Queue consumers perform bounded read-only browser
+  observation and Cloudflare-hosted model inference without a laptop staying
+  online.
+- Consequential work remains deliberately gated. The built-in runner will not
+  submit forms, send email, call people, purchase items, change accounts, or
+  control a phone. It may prepare a draft and returns `completed_unverified`
+  instead of claiming that an outside action happened.
+- Server-side quotes use the selected Cloudflare model's token rates and a
+  bounded browser allowance. The job stores both the estimate and maximum;
+  actual metered model and browser usage is written to its receipt.
+- Installed iPhone home-screen apps can subscribe to Web Push. The Worker stores
+  the endpoint server-side and sends completion, failure, approval, and budget
+  alerts. Delivery depends on the user's notification permission and the
+  platform push service.
+- The file button is intentionally inactive until the encrypted artifact vault
+  and job-scoped secret broker exist.
+- Auto, Llama 3.3 70B, and Llama 3.1 8B Fast run inside Cloudflare's account.
+  Luna and DeepSeek remain visible but unavailable until their paid provider
+  routes are explicitly funded; the alpha will not silently spend through them.
 - The working local alpha and its OpenCode/OpenRouter runtime live separately
   in `outputs/verate-app` while directory names are migrated.
-- GitHub Pages serves the product shell. A Cloudflare Worker and D1 provide the
-  first hosted control-plane boundary; accounts and isolated agent runners are
-  the next layer on that same boundary.
+- GitHub Pages serves the product shell. A Cloudflare Worker, Queue, Browser
+  Rendering binding, Workers AI binding, and D1 provide the hosted control
+  plane and bounded runner.
+
+The runner handoff and deployment order are specified in
+`docs/CLOUD_RUNNER_CONTRACT.md`.
