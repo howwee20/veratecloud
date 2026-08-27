@@ -6,6 +6,11 @@
   <meta name="theme-color" content="#f7f6f1">
   <meta name="description" content="PolySwap keeps the work intact while intelligence changes around it.">
   <title>PolySwap — Interchangeable intelligence</title>
+  <script>
+    if (new URLSearchParams(location.search).get("landing") !== "1" && window.matchMedia("(max-width: 900px) and (pointer: coarse)").matches) {
+      location.replace("mobile.html");
+    }
+  </script>
   <link rel="icon" type="image/png" href="assets/polyswap-mark.png?v=2">
   <link rel="apple-touch-icon" href="assets/polyswap-mark.png?v=2">
   <link rel="stylesheet" href="baseline.css?v=poolside-baseline-2">

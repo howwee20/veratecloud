@@ -10,9 +10,10 @@ the control plane, and every interchangeable intelligence.
    acceptance criteria, model route, privacy mode, permission profile, and cost
    ceiling into D1.
 2. The Worker publishes the job ID to the `polyswap-jobs` queue. Its built-in
-   consumer claims the row transactionally, observes at most one public web
-   target, and invokes a Cloudflare-hosted model with a bounded prompt. A cron
-   trigger republishes stranded queued jobs every five minutes.
+   consumer claims the row transactionally. Included Cloudflare models receive
+   at most one public web observation. Certified OpenRouter models can use a
+   bounded multi-turn loop of read-only `search_web` and `open_page` tools. A
+   cron trigger republishes stranded queued jobs every five minutes.
 3. The built-in runner moves the job to `running`, records checkpoints, enforces
    the maximum cost, and stores a result and receipt. It is restricted to
    read-only research, analysis, and drafting. Requests for consequential
@@ -108,6 +109,9 @@ To finish:
 3. Server-side quotes, cost ceilings, actual usage, and durable receipts.
 4. A bounded read-only Browser Rendering and Workers AI runner.
 5. Stored iOS PWA Web Push subscriptions and terminal-state notifications.
+6. A server-side OpenRouter key, curated mobile model catalog, ZDR-required
+   provider routing, per-job maximum, shared launch ceiling, and metered model
+   receipts.
 
 ## Remaining production layers
 
@@ -119,3 +123,5 @@ To finish:
    per-user authorization before broad release.
 5. Add a native or user-approved media bridge before claiming phone music or
    other device control.
+6. Add the authenticated outbound Mac runner before exposing local models in
+   the phone picker; local jobs cannot continue while that Mac is asleep.

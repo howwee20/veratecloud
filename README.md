@@ -26,6 +26,11 @@ The mobile cloud alpha includes:
 - A Worker/D1 durable job queue, automatic recovery, and revocable runner-lease
   endpoints
 - A bounded Cloudflare runner for read-only web research, analysis, and drafting
+- Server-side OpenRouter execution for DeepSeek Flash, Gemini Flash, Claude
+  Sonnet, and Llama 4 with ZDR-required provider routing
+- A bounded multi-turn browser loop for OpenRouter models, with every search,
+  page observation, route, token count, cost, and source written to the job
+  receipt
 - Server-issued preflight quotes and enforced per-job cost ceilings
 - Home-screen Web Push subscriptions for closed-app completion alerts
 
@@ -57,8 +62,12 @@ non-executing demo mode.
 - The file button is intentionally inactive until the encrypted artifact vault
   and job-scoped secret broker exist.
 - Auto, Llama 3.3 70B, and Llama 3.1 8B Fast run inside Cloudflare's account.
-  Luna and DeepSeek remain visible but unavailable until their paid provider
-  routes are explicitly funded; the alpha will not silently spend through them.
+  DeepSeek Flash, Gemini Flash, Claude Sonnet, and Llama 4 run through the
+  server-side OpenRouter route. The API key never ships to the browser; each
+  job is quoted before execution, enforces a maximum, and records actual cost.
+- Local Mac models are not yet selectable from the phone. They require the
+  outbound local-runner bridge described in the runner contract, and the Mac
+  must be awake while such a job runs.
 - The working local alpha and its OpenCode/OpenRouter runtime live separately
   in `outputs/verate-app` while directory names are migrated.
 - GitHub Pages serves the product shell. A Cloudflare Worker, Queue, Browser

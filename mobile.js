@@ -4,7 +4,7 @@
   const apiRoot = document.querySelector('meta[name="polyswap-api"]')?.content?.replace(/\/$/, "") || "";
   const params = new URLSearchParams(window.location.search);
 
-  const MODELS = [
+  const FALLBACK_MODELS = [
     {
       id: "polyswap/auto",
       name: "Auto",
@@ -40,32 +40,9 @@
       quote: 0.001,
       available: true,
       tone: "green"
-    },
-    {
-      id: "openai/gpt-5.6-luna",
-      name: "Luna",
-      short: "Luna",
-      provider: "OpenAI through Cloudflare",
-      route: "openai",
-      privacy: "gateway",
-      detail: "Add AI Gateway credit to enable",
-      quote: 0,
-      available: false,
-      tone: "amber"
-    },
-    {
-      id: "deepseek/deepseek-v4-flash",
-      name: "DeepSeek V4 Flash",
-      short: "DeepSeek",
-      provider: "Cloudflare-hosted",
-      route: "cloudflare",
-      privacy: "cloudflare",
-      detail: "Upgrade Workers to enable",
-      quote: 0,
-      available: false,
-      tone: "rose"
     }
   ];
+  let models = FALLBACK_MODELS;
 
   const TERMINAL = new Set(["completed", "completed_unverified", "failed", "cancelled"]);
   const ATTENTION = new Set(["waiting_for_human", "waiting_for_approval", "blocked"]);
@@ -83,7 +60,7 @@
     demo: params.get("demo") === "1",
     sessionId: sessionIsUsable ? savedSessionId : createSessionId(),
     accessToken: sessionIsUsable ? localStorage.getItem(STORAGE.token) || "" : "",
-    selectedModel: savedModel?.available ? savedModel : MODELS[0],
+    selectedModel: savedModel?.available ? savedModel : models[0],
     jobs: [],
     filter: "active",
     activeJob: null,
@@ -122,7 +99,6 @@
     statusBanner: document.getElementById("statusBanner"),
     notifyButton: document.getElementById("notificationButton"),
     micButton: document.getElementById("voiceButton"),
-    addButton: document.getElementById("addButton"),
     searchButton: document.getElementById("searchButton"),
     accountButton: document.getElementById("accountButton"),
     connectionDot: document.getElementById("connectionDot"),
@@ -172,7 +148,7 @@
   }
 
   function findModel(id) {
-    return MODELS.find((model) => model.id === id);
+    return models.find((model) => model.id === id);
   }
 
   function money(value) {
@@ -231,8 +207,7 @@
 
   function privacyLabel(model) {
     if (model.route === "cloudflare") return "Cloudflare-hosted";
-    if (model.route === "openai") return "OpenAI through Cloudflare";
-    if (model.privacy === "zdr") return "Pinned zero-retention route";
+    if (model.privacy === "zdr") return "OpenRouter · zero retention";
     return "Private route chosen per job";
   }
 
@@ -252,7 +227,9 @@
   function providerIcon(model) {
     if (model.id.includes("deepseek")) return "assets/providers/deepseek.svg";
     if (model.id.includes("llama")) return "assets/providers/meta.svg";
-    if (model.route === "openai") return "assets/providers/openai.svg";
+    if (model.id.startsWith("google/")) return "assets/providers/gemini.svg";
+    if (model.id.startsWith("anthropic/")) return "assets/providers/anthropic.svg";
+    if (model.id.startsWith("openai/")) return "assets/providers/openai.svg";
     return "assets/polyswap-mark.png?v=2";
   }
 
@@ -284,6 +261,40 @@
       throw error;
     }
     return payload;
+  }
+
+  function modelFromApi(profile) {
+    const label = profile.label || profile.id?.split("/").pop() || "Model";
+    return {
+      id: profile.id,
+      name: label,
+      short: label.startsWith("Auto ·") ? "Auto" : label,
+      provider: profile.provider || "PolySwap",
+      route: profile.route || "cloudflare",
+      privacy: profile.privacy || "cloudflare",
+      detail: profile.detail || "Ready for PolySwap jobs",
+      quote: Number(profile.estimatedUsd || 0),
+      available: Boolean(profile.available),
+      tone: profile.route === "openrouter" ? "violet" : "blue",
+      unavailableReason: profile.unavailableReason || "This intelligence is not available."
+    };
+  }
+
+  async function loadModels() {
+    try {
+      const payload = await api("/v1/cloud-models");
+      const liveModels = (payload.models || []).map(modelFromApi).filter((model) => model.id);
+      if (!liveModels.length) return;
+      const selectedId = localStorage.getItem(STORAGE.model) || state.selectedModel.id;
+      models = liveModels;
+      state.selectedModel = findModel(selectedId)?.available
+        ? findModel(selectedId)
+        : models.find((model) => model.id === "polyswap/auto" && model.available) || models.find((model) => model.available) || models[0];
+      renderModels();
+      updateComposer();
+    } catch (_) {
+      // The included fallback models keep the composer useful if catalog refresh fails.
+    }
   }
 
   function demoSeed() {
@@ -617,7 +628,7 @@
 
   function renderModels() {
     els.modelList.replaceChildren();
-    MODELS.forEach((model) => {
+    models.forEach((model) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "model-option";
@@ -629,8 +640,8 @@
       button.innerHTML = '<img alt=""><span><strong></strong><small></small></span><em></em>';
       button.querySelector("img").src = providerIcon(model);
       button.querySelector("strong").textContent = model.name;
-      button.querySelector("small").textContent = model.provider + " · " + model.detail;
-      button.querySelector("em").textContent = model.available ? "typical " + money(model.quote) : "not connected";
+      button.querySelector("small").textContent = model.detail;
+      button.querySelector("em").textContent = model.available ? money(model.quote) + " est." : "offline";
       button.addEventListener("click", async () => {
         if (state.swapJobId) {
           await swapJob(state.swapJobId, model);
@@ -675,7 +686,7 @@
     els.taskDetailModel.textContent = model.name + " · " + (model.provider || job.modelRoute || "PolySwap");
     els.taskDetailPrivacy.textContent = job.privacyMode === "zdr" ? "Pinned zero retention" : job.privacyMode === "cloudflare" ? "Cloudflare-hosted" : "Private route";
     els.taskDetailBudget.textContent = money(job.budgetUsd) + " max · " + money(job.estimatedUsd) + " planning estimate";
-    els.taskDetailAccess.textContent = job.permissionProfile || "ask";
+    els.taskDetailAccess.textContent = job.permissionProfile === "read-only" ? "Read only" : "Ask before acting";
 
     const pending = (job.approvals || []).find((approval) => approval.status === "pending");
     els.approvalCard.hidden = !pending;
@@ -973,7 +984,6 @@
     els.previewButton.addEventListener("click", enterPreview);
     els.notifyButton.addEventListener("click", requestNotifications);
     els.micButton.addEventListener("click", startDictation);
-    els.addButton.addEventListener("click", () => setRuntimeNote("The encrypted file vault is the next slice; this private alpha does not upload a file.", "neutral"));
     els.searchButton.addEventListener("click", searchJobs);
     els.accountButton.addEventListener("click", showAccess);
     els.modelClose.addEventListener("click", () => els.modelDialog.close());
@@ -1006,6 +1016,7 @@
       setRuntimeNote("Preview mode · no cloud work is executed", "preview");
     }
     await registerServiceWorker();
+    await loadModels();
     if (!state.demo && !state.accessToken) {
       showAccess();
       return;
