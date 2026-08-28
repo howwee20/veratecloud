@@ -22,13 +22,14 @@ private struct PolySwapWebView: UIViewRepresentable {
     func makeUIView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
         configuration.allowsInlineMediaPlayback = true
+        configuration.mediaTypesRequiringUserActionForPlayback = []
         configuration.websiteDataStore = .default()
         configuration.userContentController.add(context.coordinator, name: "polyswapNative")
 
         let webView = WKWebView(frame: .zero, configuration: configuration)
         webView.scrollView.contentInsetAdjustmentBehavior = .automatic
         webView.allowsBackForwardNavigationGestures = false
-        webView.customUserAgent = "PolySwap-iPhone/0.2"
+        webView.customUserAgent = "PolySwap-iPhone/0.3"
         webView.load(URLRequest(url: URL(string: "https://polyswap.ai/mobile.html?native=1")!))
         return webView
     }

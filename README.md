@@ -35,12 +35,14 @@ The mobile cloud alpha includes:
 - Server-issued preflight quotes and enforced per-job cost ceilings
 - Home-screen Web Push subscriptions for closed-app completion alerts
 - A zero-cost media runtime that resolves music requests in the cloud and
-  publishes them to the durable iPhone playback session
+  mounts the resolved YouTube video directly inside the expanded active job,
+  then publishes the same request to the durable iPhone playback session
 - A durable, versioned playback session with pause, resume, stop, skip, track
   changes, device heartbeats, and single-use iPhone pairing codes
 - A compiled SwiftUI/WebKit/MusicKit iPhone client in `ios/PolySwapMobile` that
   shows the same one-screen dashboard, connects its authenticated cloud session
-  to the native player, and declares background audio playback
+  to the native player, shows the foreground video, and carries audio through
+  app switching and screen lock
 
 Open `https://polyswap.ai/mobile.html` on a phone for the private cloud alpha.
 For local UI work, serve this directory on port 4173 and open

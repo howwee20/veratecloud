@@ -74,7 +74,8 @@
     mediaPlayers: [],
     playback: null,
     playbackRevision: -1,
-    pairingCode: ""
+    pairingCode: "",
+    renderKey: ""
   };
 
   const els = {
@@ -426,6 +427,11 @@
         ? { jobs: demoSeed() }
         : await api("/v1/jobs?sessionId=" + encodeURIComponent(state.sessionId));
       const nextJobs = payload.jobs || [];
+      const newlyReadyMedia = nextJobs.find((job) => {
+        if (job.kind !== "media" || job.status !== "ready") return false;
+        return state.jobs.find((current) => current.id === job.id)?.status !== "ready";
+      });
+      if (newlyReadyMedia) state.expandedJobId = newlyReadyMedia.id;
       if (!state.demo) await loadPlayback({ quiet: true });
       notifyTransitions(nextJobs);
       state.jobs = nextJobs;
@@ -510,6 +516,23 @@
   }
 
   function renderJobs() {
+    const nextRenderKey = JSON.stringify({
+      jobs: state.jobs,
+      expandedJobId: state.expandedJobId,
+      expandedDetail: state.expandedJobId ? state.jobDetails.get(state.expandedJobId) || null : null,
+      playback: state.playback ? {
+        revision: state.playback.revision,
+        desiredState: state.playback.desiredState,
+        lastCommand: state.playback.lastCommand,
+        error: state.playback.error,
+        deviceConnected: Boolean(state.playback.device?.connected),
+        deviceRevision: state.playback.device?.appliedRevision
+      } : null,
+      pairingCode: state.pairingCode
+    });
+    if (nextRenderKey === state.renderKey) return;
+    state.renderKey = nextRenderKey;
+    destroyMediaPlayers();
     const active = state.jobs.filter((job) => !TERMINAL.has(job.status));
     const past = state.jobs.filter((job) => TERMINAL.has(job.status));
     renderJobGroup(els.activeList, active, "Send a job above. It will keep running here after you leave.");
@@ -551,10 +574,14 @@
   function renderInlineJob(container, job) {
     container.replaceChildren();
 
-    const update = document.createElement("p");
-    update.className = "inline-update";
-    update.textContent = job.currentInstruction || plainJobUpdate(job) + ".";
-    container.appendChild(update);
+    const mediaEvidence = job.evidence || job.receipt?.evidence || [];
+    const hasReadyVideo = job.kind === "media" && mediaEvidence.some(isYouTubeMedia);
+    if (!hasReadyVideo) {
+      const update = document.createElement("p");
+      update.className = "inline-update";
+      update.textContent = job.currentInstruction || plainJobUpdate(job) + ".";
+      container.appendChild(update);
+    }
 
     const pending = (job.approvals || []).find((approval) => approval.status === "pending");
     if (pending) {
@@ -616,49 +643,18 @@
   }
 
   function renderInlinePlayback(container, job) {
-    const playback = state.playback;
-    const connected = Boolean(playback?.device?.connected);
+    const evidence = job.evidence || job.receipt?.evidence || [];
+    const media = evidence.find(isYouTubeMedia);
     const card = document.createElement("section");
-    card.className = connected ? "inline-player connected" : "inline-player";
-    const title = document.createElement("strong");
-    title.textContent = connected
-      ? playback.desiredState === "paused" ? "Paused on this iPhone" : "Playing on this iPhone"
-      : "Connect this iPhone once";
-    const detail = document.createElement("p");
-    detail.textContent = connected
-      ? "You can lock the screen or leave PolySwap. New music commands go to the same player."
-      : "The cloud job is ready. Connect the native PolySwap player so audio survives Safari closing.";
-    card.append(title, detail);
-
-    if (connected) {
-      const actions = document.createElement("div");
-      actions.className = "inline-actions";
-      actions.append(
-        actionButton(playback.desiredState === "paused" ? "Resume" : "Pause", "quiet", () => sendPlaybackCommand(playback.desiredState === "paused" ? "resume" : "pause")),
-        actionButton("Next", "quiet", () => sendPlaybackCommand("next"))
-      );
-      card.appendChild(actions);
+    card.className = media ? "inline-player media-only" : "inline-player";
+    if (media) {
+      const mediaResult = document.createElement("div");
+      renderYouTubePlayer(mediaResult, media);
+      card.appendChild(mediaResult);
     } else {
-      const actions = document.createElement("div");
-      actions.className = "inline-actions";
-      const install = document.createElement("a");
-      install.className = "inline-button quiet";
-      install.href = "/ios/install/";
-      install.textContent = "Install player";
-      actions.append(install, actionButton(state.pairingCode ? "New code" : "Get pairing code", "primary", createPlayerPairing));
-      card.appendChild(actions);
-      if (state.pairingCode) {
-        const code = document.createElement("p");
-        code.className = "inline-pairing-code";
-        code.textContent = state.pairingCode;
-        card.appendChild(code);
-      }
-    }
-    if (playback?.error) {
-      const error = document.createElement("p");
-      error.className = "inline-error";
-      error.textContent = playback.error;
-      card.appendChild(error);
+      const title = document.createElement("strong");
+      title.textContent = "Finding the video…";
+      card.appendChild(title);
     }
     container.appendChild(card);
   }
@@ -792,6 +788,7 @@
       job = response.job;
       state.jobs.unshift(job);
     }
+    if (job.kind === "media") state.expandedJobId = job.id;
     els.prompt.value = "";
     updateComposer();
     renderJobs();
@@ -1077,6 +1074,7 @@
     };
     showCandidate();
     ensureYouTubeApi().then((YT) => {
+      const nativeAudio = params.get("native") === "1" || Boolean(state.playback?.device?.connected);
       player = new YT.Player(target.id, {
         width: "100%",
         height: "100%",
@@ -1084,12 +1082,16 @@
         playerVars: {
           autoplay: 1,
           playsinline: 1,
-          controls: 1,
+          controls: nativeAudio ? 0 : 1,
+          disablekb: nativeAudio ? 1 : 0,
           rel: 0,
           origin: window.location.origin
         },
         events: {
-          onReady: (event) => event.target.playVideo(),
+          onReady: (event) => {
+            if (nativeAudio) event.target.mute();
+            event.target.playVideo();
+          },
           onAutoplayBlocked: () => { play.hidden = false; },
           onStateChange: (event) => {
             if (event.data === YT.PlayerState.PLAYING) play.hidden = true;

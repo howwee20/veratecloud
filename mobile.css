@@ -356,6 +356,14 @@ button { color: inherit; }
 }
 .inline-result, .inline-player.connected { background: var(--green-soft); }
 .inline-player { background: #f0eefb; }
+.inline-player.media-only {
+  gap: 0;
+  padding: 0;
+  background: transparent;
+}
+.inline-player .media-result {
+  margin: 0;
+}
 .inline-attention strong, .inline-player strong { font-size: 11px; }
 .inline-attention p, .inline-result p, .inline-player p { margin: 0; color: #696970; font-size: 10px; line-height: 1.55; }
 .inline-result small { color: var(--green); font-size: 8px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
@@ -558,14 +566,15 @@ dialog::backdrop { background: rgba(22, 22, 26, .32); backdrop-filter: blur(3px)
 .approval-card > div { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
 .receipt-card ul { display: grid; gap: 8px; margin: 13px 0 0; padding: 0; color: #4d6e5b; font-size: 10px; line-height: 1.6; list-style: none; }
 .receipt-card li:not(:has(.phone-action)) { margin-left: 17px; list-style: disc; }
-.receipt-card li.media-result {
+.receipt-card li.media-result,
+.inline-player .media-result {
   overflow: hidden;
-  margin: 3px 0 0;
   border: 1px solid rgba(43, 123, 89, .16);
   border-radius: 13px;
   background: #fff;
   list-style: none;
 }
+.receipt-card li.media-result { margin: 3px 0 0; }
 .playback-controls { display: grid; gap: 10px; margin: 14px 0 22px; }
 .playback-controls form { display: flex; gap: 8px; padding: 7px 7px 7px 13px; border: 1px solid #deded9; border-radius: 14px; background: #fff; }
 .playback-controls input { min-width: 0; flex: 1; border: 0; outline: 0; background: transparent; color: #252529; font: inherit; font-size: 11px; }
