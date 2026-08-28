@@ -523,3 +523,33 @@ body { background: #eeece6; }
   .signature-orbs i { width: 10px; height: 10px; }
   .signature-word { right: 10px; bottom: -4px; left: 10px; font-size: 19.4vw; }
 }
+
+/* PolySwap light spectrum */
+:root {
+  --paper: #fbfaff;
+  --surface: #ffffff;
+  --ink: #282238;
+  --soft: #6f687c;
+  --muted: #9991a5;
+  --line: rgba(64,49,105,.16);
+  --line-soft: rgba(64,49,105,.08);
+  --violet: #5b3df5;
+}
+body { background: #f1eef8; }
+.site-header { background: rgba(251,250,255,.94); }
+.site-header.is-scrolled { background: rgba(255,255,255,.97); }
+.page-shell,.site-footer { background: var(--paper); }
+.skip-link,.nav-download,.oc-announcement strong,.oc-button { border-color: var(--violet); background: var(--violet); color: #fff; }
+.nav-download:hover,.oc-button:hover { background: #4727df; }
+.button-primary { border-color: var(--violet); background: var(--violet); }
+.real-composer > div > i { background: var(--violet); }
+.quick-download-action:hover { background: #eeeaff; color: var(--violet); }
+.hero .product-stage { background-color: #eeeaff; background-image: radial-gradient(circle at 10% 14%,rgba(236,43,149,.14),transparent 26%),radial-gradient(circle at 87% 15%,rgba(40,137,227,.14),transparent 28%),radial-gradient(circle at 55% 96%,rgba(242,189,30,.13),transparent 30%),repeating-linear-gradient(0deg,rgba(87,56,245,.04) 0 1px,transparent 1px 4px),repeating-linear-gradient(90deg,rgba(87,56,245,.035) 0 1px,transparent 1px 4px); }
+.hero .stage-label { color: rgba(61,48,96,.54); }
+.hero .app-window { border-color: rgba(87,56,245,.2); box-shadow: 0 28px 70px rgba(75,55,142,.18); }
+.intelligence-panel { background-color: #eeeaff; background-image: radial-gradient(circle at 9% 0%,rgba(236,43,149,.13),transparent 34%),radial-gradient(circle at 100% 100%,rgba(40,137,227,.14),transparent 38%); }
+.intelligence-panel .provider-list,.intelligence-panel .record-card { border: 1px solid rgba(87,56,245,.12); box-shadow: 0 18px 42px rgba(75,55,142,.08); }
+.footer-grid a:hover { background: #eeeaff; color: var(--violet); }
+.signature-word { color: rgba(91,61,245,.18); -webkit-text-stroke: 1px rgba(91,61,245,.34); }
+.signature-word b:last-child { color: var(--violet); -webkit-text-stroke: 0; }
+.footer-signature { background: linear-gradient(105deg,#fbfaff 0 62%,rgba(91,61,245,.1) 100%); }

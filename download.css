@@ -140,3 +140,17 @@ h1 { max-width:none; margin:28px 0 0; font-size:clamp(72px,8vw,116px); font-weig
   .download-intro { font-size:15px; }
   .download-card { min-height:520px; }.platform-mark { min-height:280px; }.platform-mark span { font-size:60px; }.download-card h2 { font-size:30px; }.download-card > div:nth-child(2) { padding:28px 24px 0; }.download-card > span { margin:38px 24px 26px; }
 }
+
+/* PolySwap light spectrum */
+:root { --paper:#fbfaff; --surface:#fff; --ink:#282238; --soft:#6f687c; --muted:#9991a5; --line:rgba(64,49,105,.16); --violet:#5b3df5; }
+body { background:#f1eef8; }
+.download-header { background:rgba(251,250,255,.94); }
+.download-shell,.download-hero,.download-footer { background:var(--paper); }
+.platform-mark { background-color:#eeeaff; background-image:radial-gradient(circle at 14% 12%,rgba(236,43,149,.13),transparent 27%),radial-gradient(circle at 86% 18%,rgba(40,137,227,.14),transparent 30%),linear-gradient(rgba(87,56,245,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(87,56,245,.04) 1px,transparent 1px); background-size:100% 100%,100% 100%,20px 20px,20px 20px; }
+.platform-mark span { -webkit-text-stroke:1px rgba(91,61,245,.3); }
+.platform-mark img { border-color:rgba(91,61,245,.16); box-shadow:0 14px 30px rgba(75,55,142,.1); }
+.download-card:hover { box-shadow:0 22px 55px rgba(75,55,142,.1); }
+.download-cta { background:#e5dfff; }
+.download-cta a { background:var(--violet); }
+.download-cta a:hover { background:#4727df; }
+.download-wordmark > span { background-image:none; color:rgba(91,61,245,.16); -webkit-text-stroke:1px rgba(91,61,245,.34); }
