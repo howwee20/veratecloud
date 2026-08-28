@@ -39,6 +39,14 @@ final class CloudPlaybackStore: ObservableObject {
         self.player = player
         guard isPaired else { return }
         await player.prepare()
+        await refresh()
+        beginPolling()
+    }
+
+    func becameActive() async {
+        guard isPaired else { return }
+        await player?.prepare()
+        await refresh()
         beginPolling()
     }
 
@@ -110,7 +118,7 @@ final class CloudPlaybackStore: ObservableObject {
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.refresh()
-                try? await Task.sleep(for: .seconds(2))
+                try? await Task.sleep(for: .seconds(1.5))
             }
         }
     }

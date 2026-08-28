@@ -1,4 +1,5 @@
 import AVFAudio
+import Combine
 import MusicKit
 
 @MainActor
@@ -10,6 +11,23 @@ final class MusicPlaybackController: ObservableObject {
 
     private let player = ApplicationMusicPlayer.shared
     private var prepared = false
+    private var observations = Set<AnyCancellable>()
+
+    init() {
+        player.state.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in
+                DispatchQueue.main.async { self?.syncPlayerState() }
+            }
+            .store(in: &observations)
+
+        player.queue.objectWillChange
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] in
+                DispatchQueue.main.async { self?.syncPlayerState() }
+            }
+            .store(in: &observations)
+    }
 
     func prepare() async {
         guard !prepared else { return }
@@ -20,12 +38,18 @@ final class MusicPlaybackController: ObservableObject {
                 lastError = "Allow Apple Music access to play in the background."
                 return
             }
+            let subscription = try await MusicSubscription.current
+            guard subscription.canPlayCatalogContent else {
+                status = "subscription-needed"
+                lastError = "An Apple Music subscription is required for full-track background playback."
+                return
+            }
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default)
+            try session.setCategory(.playback, mode: .default, policy: .longFormAudio)
             try session.setActive(true)
             prepared = true
-            status = "ready"
             lastError = ""
+            syncPlayerState(fallback: "ready")
         } catch {
             status = "error"
             lastError = error.localizedDescription
@@ -42,24 +66,21 @@ final class MusicPlaybackController: ObservableObject {
                 try await play(query: cloud.requestedQuery)
             case "pause":
                 player.pause()
-                status = "paused"
             case "resume":
+                try await activateAudioSession()
                 try await player.play()
-                status = "playing"
             case "stop":
                 player.stop()
-                status = "stopped"
             case "next":
                 try await player.skipToNextEntry()
-                status = "playing"
             case "previous":
                 try await player.skipToPreviousEntry()
-                status = "playing"
             default:
                 break
             }
             appliedRevision = cloud.revision
             lastError = ""
+            syncPlayerState()
         } catch {
             status = "error"
             lastError = error.localizedDescription
@@ -75,9 +96,39 @@ final class MusicPlaybackController: ObservableObject {
         guard let song = response.songs.first else {
             throw NSError(domain: "PolySwap", code: 404, userInfo: [NSLocalizedDescriptionKey: "Apple Music could not find that track."])
         }
+        try await activateAudioSession()
         player.queue = [song]
+        try await player.prepareToPlay()
         try await player.play()
         nowPlaying = "\(song.title) — \(song.artistName)"
         status = "playing"
+    }
+
+    private func activateAudioSession() async throws {
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.playback, mode: .default, policy: .longFormAudio)
+        try session.setActive(true)
+    }
+
+    private func syncPlayerState(fallback: String? = nil) {
+        switch player.state.playbackStatus {
+        case .playing:
+            status = "playing"
+        case .paused:
+            status = "paused"
+        case .stopped:
+            status = fallback ?? "stopped"
+        case .interrupted:
+            status = "interrupted"
+        case .seekingForward, .seekingBackward:
+            status = "playing"
+        @unknown default:
+            status = fallback ?? "ready"
+        }
+
+        if let entry = player.queue.currentEntry {
+            let subtitle = entry.subtitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            nowPlaying = subtitle.isEmpty ? entry.title : "\(entry.title) — \(subtitle)"
+        }
     }
 }

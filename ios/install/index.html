@@ -9,7 +9,7 @@
       * { box-sizing: border-box; }
       body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #fafafa; color: #171719; }
       main { width: min(100% - 40px, 430px); text-align: center; padding: 44px 0 64px; }
-      .mark { width: 68px; height: 68px; margin: 0 auto 22px; border-radius: 18px; display: grid; place-items: center; background: white; box-shadow: 0 12px 35px rgba(25, 20, 45, .12); font-size: 34px; }
+      .mark { width: 68px; height: 68px; margin: 0 auto 22px; border-radius: 18px; display: block; background: white; box-shadow: 0 12px 35px rgba(25, 20, 45, .12); }
       h1 { margin: 0 0 10px; font-size: 36px; letter-spacing: -.04em; }
       p { margin: 0 auto 28px; color: #76767d; font-size: 18px; line-height: 1.45; }
       a { display: block; width: 100%; padding: 17px 20px; border-radius: 16px; background: #1d1d1f; color: white; text-decoration: none; font-size: 18px; font-weight: 700; }
@@ -18,11 +18,11 @@
   </head>
   <body>
     <main>
-      <div class="mark" aria-hidden="true">🔵</div>
+      <img class="mark" src="/assets/polyswap-mark.png?v=2" alt="PolySwap">
       <h1>PolySwap for iPhone</h1>
-      <p>This player keeps your music going when the screen locks or you leave PolySwap.</p>
+      <p>PolySwap 0.4 keeps Apple Music playing when the screen locks or you leave the app.</p>
       <a href="itms-services://?action=download-manifest&amp;url=https%3A%2F%2Fpolyswap.ai%2Fios%2Finstall%2Fmanifest.xml">Install PolySwap</a>
-      <small>Open this page in Safari on Ej’s iPhone. This development build is signed only for that registered phone.</small>
+      <small>Open this page in Safari on Ej’s iPhone, tap Install, then open PolySwap. Allow Apple Music the first time it asks.</small>
     </main>
   </body>
 </html>

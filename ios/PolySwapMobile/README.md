@@ -10,8 +10,10 @@ This is the background-audio client for the durable playback session hosted by t
    connects that dashboard session to the MusicKit player automatically.
 
 The target declares the `audio` background mode and configures `AVAudioSession`
-for playback. Version 0.3 shows the resolved YouTube video in the same dashboard
-while MusicKit carries the matching cloud request through app switching and
-screen lock. The six-digit pairing route remains available when the job is sent
-from Safari instead of from the native app. MusicKit does not run in the iOS
-simulator, so playback must be verified on a physical iPhone.
+with the long-form playback policy. Version 0.4 shows the resolved YouTube video
+in the same dashboard while `ApplicationMusicPlayer` carries the matching Apple
+Music request through app switching and screen lock. MusicKit supplies system
+Now Playing information and lock-screen commands. The six-digit pairing route
+remains available when the job is sent from Safari instead of from the native
+app. MusicKit does not run in the iOS simulator, so playback must be verified on
+a physical iPhone.

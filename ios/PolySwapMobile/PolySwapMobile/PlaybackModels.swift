@@ -52,6 +52,7 @@ struct ModelChoice: Identifiable, Hashable {
     static let choices = [
         ModelChoice(id: "polyswap/auto", label: "Auto"),
         ModelChoice(id: "deepseek/deepseek-v4-flash-0731", label: "DeepSeek Flash"),
+        ModelChoice(id: "openai/gpt-5.6-luna", label: "GPT-5.6 Luna"),
         ModelChoice(id: "google/gemini-3.7-flash", label: "Gemini Flash"),
         ModelChoice(id: "anthropic/claude-sonnet-5", label: "Claude Sonnet"),
         ModelChoice(id: "cloudflare/llama-3.1-8b-fast", label: "Llama Fast")
