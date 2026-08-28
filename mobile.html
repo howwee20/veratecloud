@@ -13,8 +13,8 @@
   <link rel="icon" type="image/png" href="assets/polyswap-mark.png?v=2">
   <link rel="apple-touch-icon" href="assets/polyswap-mark.png?v=2">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="mobile.css?v=mobile-desktop-1">
-  <script src="mobile.js?v=mobile-desktop-1" defer></script>
+  <link rel="stylesheet" href="mobile.css?v=mobile-simple-2">
+  <script src="mobile.js?v=mobile-simple-2" defer></script>
 </head>
 <body>
   <header class="mobile-header">
@@ -22,32 +22,9 @@
       <img src="assets/polyswap-mark.png?v=2" alt="">
       <span>PolySwap</span>
     </a>
-    <span class="cloud-presence"><i></i> Cloud</span>
   </header>
 
   <main class="mobile-main">
-    <div class="status-banner" id="statusBanner" hidden></div>
-    <div class="notification-prompt" id="notificationPrompt" hidden>
-      <span>Get an alert when PolySwap is done or needs you</span>
-      <button id="notificationButton" type="button">Turn on</button>
-    </div>
-
-    <section class="job-group active-jobs" aria-labelledby="activeJobsTitle">
-      <header class="job-group-header">
-        <h2 id="activeJobsTitle">Active</h2>
-        <span id="activeCount">0</span>
-      </header>
-      <div class="task-list" id="activeJobList" aria-live="polite"></div>
-    </section>
-
-    <section class="job-group past-jobs" aria-labelledby="pastJobsTitle">
-      <header class="job-group-header">
-        <h2 id="pastJobsTitle">Past</h2>
-        <span id="pastCount">0</span>
-      </header>
-      <div class="task-list" id="pastJobList"></div>
-    </section>
-
     <div class="composer-dock">
       <div class="attachment-chip" id="attachmentChip" hidden><span></span><button type="button" aria-label="Remove attachment">×</button></div>
       <form class="job-composer" id="jobComposer">
@@ -69,6 +46,37 @@
         </div>
       </form>
     </div>
+
+    <div class="status-banner" id="statusBanner" hidden></div>
+
+    <section class="activity-shell" aria-label="PolySwap activity">
+      <button class="activity-toggle" id="activityToggle" type="button" aria-expanded="false" aria-controls="activityDrawer">
+        <span>Activity</span>
+        <span class="activity-toggle-meta"><span id="activityTotal">0</span><span class="activity-caret" aria-hidden="true">⌄</span></span>
+      </button>
+      <div class="activity-drawer" id="activityDrawer" hidden>
+        <div class="notification-prompt" id="notificationPrompt" hidden>
+          <span>Get an alert when PolySwap is done or needs you</span>
+          <button id="notificationButton" type="button">Turn on</button>
+        </div>
+
+        <section class="job-group active-jobs" aria-labelledby="activeJobsTitle">
+          <header class="job-group-header">
+            <h2 id="activeJobsTitle">Active</h2>
+            <span id="activeCount">0</span>
+          </header>
+          <div class="task-list" id="activeJobList" aria-live="polite"></div>
+        </section>
+
+        <section class="job-group past-jobs" aria-labelledby="pastJobsTitle">
+          <header class="job-group-header">
+            <h2 id="pastJobsTitle">Past</h2>
+            <span id="pastCount">0</span>
+          </header>
+          <div class="task-list" id="pastJobList"></div>
+        </section>
+      </div>
+    </section>
   </main>
 
   <dialog class="sheet-dialog access-dialog" id="accessDialog">

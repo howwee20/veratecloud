@@ -77,7 +77,8 @@
     pairingCode: "",
     renderKey: "",
     taskView: "chat",
-    pendingAttachment: null
+    pendingAttachment: null,
+    activityOpen: false
   };
 
   const els = {
@@ -95,6 +96,9 @@
     pastList: document.getElementById("pastJobList"),
     activeCount: document.getElementById("activeCount"),
     pastCount: document.getElementById("pastCount"),
+    activityToggle: document.getElementById("activityToggle"),
+    activityDrawer: document.getElementById("activityDrawer"),
+    activityTotal: document.getElementById("activityTotal"),
     accessDialog: document.getElementById("accessDialog"),
     accessForm: document.getElementById("accessForm"),
     accessCode: document.getElementById("accessCode"),
@@ -305,7 +309,7 @@
   }
 
   function setRuntimeNote(message, tone) {
-    const visible = tone === "preview" || tone === "error" || tone === "success";
+    const visible = tone === "error" || tone === "success";
     els.statusBanner.hidden = !visible;
     if (!visible) return;
     els.statusBanner.textContent = message;
@@ -595,6 +599,13 @@
     renderJobGroup(els.pastList, past, "Finished jobs will appear here.");
     els.activeCount.textContent = String(active.length);
     els.pastCount.textContent = String(past.length);
+    els.activityTotal.textContent = active.length ? active.length + " active" : String(past.length);
+  }
+
+  function setActivityOpen(open) {
+    state.activityOpen = Boolean(open);
+    els.activityToggle.setAttribute("aria-expanded", String(state.activityOpen));
+    els.activityDrawer.hidden = !state.activityOpen;
   }
 
   function renderJobGroup(list, jobs, emptyMessage) {
@@ -849,7 +860,8 @@
     updateComposer();
     renderJobs();
     updateNotificationPrompt();
-    await openJob(job.id);
+    setActivityOpen(false);
+    els.prompt.blur();
   }
 
   function advanceDemo(jobId) {
@@ -1600,6 +1612,7 @@
 
   function bindEvents() {
     els.form.addEventListener("submit", createJob);
+    els.activityToggle.addEventListener("click", () => setActivityOpen(!state.activityOpen));
     els.prompt.addEventListener("input", updateComposer);
     els.attachmentButton.addEventListener("click", () => els.attachmentInput.click());
     els.attachmentInput.addEventListener("change", chooseAttachment);
@@ -1661,6 +1674,7 @@
 
   async function init() {
     bindEvents();
+    setActivityOpen(false);
     renderModels();
     renderAttachment();
     els.followupSend.disabled = true;

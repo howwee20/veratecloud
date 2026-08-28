@@ -17,8 +17,8 @@ The public Chat path now includes:
 
 The mobile cloud alpha includes:
 
-- A single phone-first dispatch screen at `mobile.html`: composer, active jobs,
-  then past jobs, with no automatic Job Room navigation
+- A single phone-first dispatch screen at `mobile.html`: brand, composer, and a
+  collapsed Activity drawer for active and past jobs, with no automatic Job Room navigation
 - One-tap model selection with server-enforced permission and cost defaults
 - Task, attention, and archive views with live checkpoints
 - One-time approval controls for consequential external actions

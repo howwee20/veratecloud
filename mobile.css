@@ -83,9 +83,9 @@ button { color: inherit; }
 .mobile-brand img { width: 25px; height: 25px; object-fit: contain; }
 
 .mobile-main {
-  width: min(720px, calc(100% - 36px));
+  width: min(640px, calc(100% - 36px));
   margin: 0 auto;
-  padding: 26px 0 calc(54px + env(safe-area-inset-bottom));
+  padding: 28px 0 calc(54px + env(safe-area-inset-bottom));
 }
 
 .job-composer {
@@ -695,35 +695,13 @@ dialog::backdrop { background: rgba(22, 22, 26, .32); backdrop-filter: blur(3px)
   @keyframes work-pulse { 50% { box-shadow: 0 0 0 7px rgba(111, 61, 244, 0); } }
 }
 
-/* Desktop interaction model, compressed for one-handed phone use. */
-.mobile-header { justify-content: space-between; }
-.cloud-presence {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: #74747a;
-  font-size: 10px;
-  font-weight: 700;
-}
-.cloud-presence i { width: 7px; height: 7px; border-radius: 50%; background: #42a477; box-shadow: 0 0 0 4px rgba(66, 164, 119, .1); }
-
-.mobile-main { padding-top: 7px; padding-bottom: calc(176px + env(safe-area-inset-bottom)); }
-.job-group { margin-top: 22px; }
-.job-group:first-of-type { margin-top: 8px; }
-.past-jobs { margin-top: 34px; }
+/* The phone home is a single dispatcher; job history stays behind Activity. */
 .composer-dock {
-  position: fixed;
-  z-index: 18;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  width: min(720px, calc(100% - 28px));
-  margin: 0 auto;
-  padding: 12px 0 calc(12px + env(safe-area-inset-bottom));
-  background: linear-gradient(to bottom, rgba(247,247,245,0), rgba(247,247,245,.95) 18%, var(--page) 45%);
+  position: relative;
+  width: 100%;
+  margin: 0;
 }
-.composer-dock .job-composer { box-shadow: 0 14px 46px rgba(24,24,30,.14), 0 2px 8px rgba(24,24,30,.05); }
-.composer-dock .job-composer textarea { min-height: 63px; max-height: 116px; padding-top: 16px; }
+.composer-dock .job-composer textarea { min-height: 116px; max-height: 210px; }
 .composer-left { display: flex; align-items: center; min-width: 0; }
 .attach-tool { width: 34px; padding: 0; font-size: 23px; font-weight: 350; }
 .attachment-chip {
@@ -744,6 +722,30 @@ dialog::backdrop { background: rgba(22, 22, 26, .32); backdrop-filter: blur(3px)
 }
 .attachment-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-chip button { width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: #f0eef5; color: #77717f; }
+
+.activity-shell { margin-top: 16px; }
+.activity-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 4px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: #66666c;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.activity-toggle-meta { display: inline-flex; align-items: center; gap: 9px; color: #99999e; }
+.activity-caret { display: inline-block; font-size: 16px; line-height: 1; transition: transform 160ms ease; }
+.activity-toggle[aria-expanded="true"] .activity-caret { transform: rotate(180deg); }
+.activity-drawer { padding: 4px 0 24px; }
+.activity-drawer .notification-prompt { margin-top: 12px; }
+.activity-drawer .job-group { margin-top: 18px; }
+.activity-drawer .past-jobs { margin-top: 28px; }
 
 .task-dialog { width: min(780px, 100%); height: min(940px, 100%); }
 .task-detail { grid-template-rows: auto auto minmax(0, 1fr) auto; }
@@ -814,8 +816,7 @@ dialog::backdrop { background: rgba(22, 22, 26, .32); backdrop-filter: blur(3px)
 .task-composer-footer .task-actions { margin-top: 7px; padding: 0; border: 0; background: transparent; }
 
 @media (max-width: 700px) {
-  .mobile-main { width: calc(100% - 28px); padding-top: 7px; padding-bottom: calc(168px + env(safe-area-inset-bottom)); }
-  .composer-dock { width: calc(100% - 22px); }
+  .mobile-main { width: calc(100% - 28px); padding-top: 24px; padding-bottom: calc(44px + env(safe-area-inset-bottom)); }
   .task-chat-pane { padding: 21px 17px 30px; }
   .task-work-pane { padding: 23px 18px 34px; }
 }
