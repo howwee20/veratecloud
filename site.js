@@ -31,7 +31,7 @@ window.addEventListener('scroll', updateHeader, { passive: true })
 const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
 const revealItems = [
-  ...document.querySelectorAll('.product-stage, .pool-section h2, .intelligence-card, .editorial-feature, .article-grid article, .section-link, .destination-card, .site-footer')
+  ...document.querySelectorAll('.product-stage, .oc-copy, .oc-section-head, .intelligence-panel, .figure-grid article, .site-footer')
 ]
 
 revealItems.forEach((item, index) => {
