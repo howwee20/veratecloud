@@ -75,13 +75,18 @@
     playback: null,
     playbackRevision: -1,
     pairingCode: "",
-    renderKey: ""
+    renderKey: "",
+    taskView: "chat",
+    pendingAttachment: null
   };
 
   const els = {
     form: document.getElementById("jobComposer"),
     prompt: document.getElementById("jobPrompt"),
     send: document.getElementById("sendButton"),
+    attachmentButton: document.getElementById("attachmentButton"),
+    attachmentInput: document.getElementById("attachmentInput"),
+    attachmentChip: document.getElementById("attachmentChip"),
     modelButton: document.getElementById("modelButton"),
     modelName: document.getElementById("modelLabel"),
     modelIcon: document.getElementById("modelIcon"),
@@ -104,6 +109,12 @@
     micButton: document.getElementById("voiceButton"),
     modelClose: document.getElementById("modelClose"),
     taskClose: document.getElementById("taskClose"),
+    taskMenu: document.getElementById("taskMenu"),
+    taskChatTab: document.getElementById("taskChatTab"),
+    taskWorkTab: document.getElementById("taskWorkTab"),
+    taskChatPane: document.getElementById("taskChatPane"),
+    taskWorkPane: document.getElementById("taskWorkPane"),
+    jobConversation: document.getElementById("jobConversation"),
     taskDetailId: document.getElementById("taskDetailId"),
     taskDetailStatus: document.getElementById("taskDetailStatus"),
     taskDetailTitle: document.getElementById("taskDetailTitle"),
@@ -123,6 +134,10 @@
     pauseButton: document.getElementById("pauseButton"),
     cancelButton: document.getElementById("cancelButton"),
     taskActions: document.getElementById("taskActions"),
+    followupComposer: document.getElementById("followupComposer"),
+    followupPrompt: document.getElementById("followupPrompt"),
+    followupSend: document.getElementById("followupSend"),
+    taskModelButton: document.getElementById("taskModelButton"),
     playbackControls: document.getElementById("playbackControls"),
     playbackComposer: document.getElementById("playbackComposer"),
     playbackPrompt: document.getElementById("playbackPrompt"),
@@ -248,6 +263,36 @@
     els.send.disabled = !els.prompt.value.trim();
     els.prompt.style.height = "auto";
     els.prompt.style.height = Math.min(els.prompt.scrollHeight, 132) + "px";
+  }
+
+  function renderAttachment() {
+    const attachment = state.pendingAttachment;
+    els.attachmentChip.hidden = !attachment;
+    if (attachment) els.attachmentChip.querySelector("span").textContent = attachment.name;
+  }
+
+  async function chooseAttachment(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (file.size > 30000) {
+      setRuntimeNote("That file is too large for this alpha · keep text attachments under 30 KB", "error");
+      return;
+    }
+    try {
+      const content = await file.text();
+      if (!content.trim()) throw new Error("That file has no readable text.");
+      state.pendingAttachment = { name: file.name.slice(0, 160), content: content.slice(0, 30000) };
+      renderAttachment();
+      els.prompt.focus();
+    } catch (error) {
+      setRuntimeNote(error.message || "PolySwap could not read that attachment.", "error");
+    }
+  }
+
+  function clearAttachment() {
+    state.pendingAttachment = null;
+    renderAttachment();
   }
 
   function providerIcon(model) {
@@ -445,6 +490,17 @@
         state.jobDetails.set(expanded.id, detail.job);
         renderJobs();
       }
+      if (els.taskDialog.open && state.activeJob) {
+        const current = nextJobs.find((job) => job.id === state.activeJob.id);
+        if (current && current.updatedAt !== state.activeJob.updatedAt) {
+          const detail = state.demo
+            ? current
+            : (await api("/v1/jobs/" + encodeURIComponent(current.id) + "?sessionId=" + encodeURIComponent(state.sessionId))).job;
+          state.activeJob = detail;
+          state.jobDetails.set(detail.id, detail);
+          renderJobDetail(detail);
+        }
+      }
       focusJobFromHash();
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
@@ -563,11 +619,9 @@
     node.querySelector(".task-copy small").textContent = plainJobUpdate(job) + " · " + model.short;
     node.querySelector(".task-meta em").textContent = job.kind === "phone" && job.status === "waiting_for_human" ? "Ready" : statusLabel(job.status);
     node.querySelector(".task-meta time").textContent = timeLabel(job.updatedAt || job.createdAt);
-    const expanded = state.expandedJobId === job.id;
-    summary.setAttribute("aria-expanded", String(expanded));
-    inline.hidden = !expanded;
-    if (expanded) renderInlineJob(inline, state.jobDetails.get(job.id) || job);
-    summary.addEventListener("click", () => toggleInlineJob(job.id));
+    summary.setAttribute("aria-expanded", "false");
+    inline.hidden = true;
+    summary.addEventListener("click", () => openJob(job.id));
     return node;
   }
 
@@ -741,7 +795,8 @@
       ],
       estimatedUsd: quoteFor(goal, model),
       budgetUsd: DEFAULT_BUDGET_USD,
-      background: true
+      background: true,
+      attachments: state.pendingAttachment ? [state.pendingAttachment] : []
     };
     els.send.disabled = true;
     try {
@@ -790,9 +845,11 @@
     }
     if (job.kind === "media") state.expandedJobId = job.id;
     els.prompt.value = "";
+    clearAttachment();
     updateComposer();
     renderJobs();
     updateNotificationPrompt();
+    await openJob(job.id);
   }
 
   function advanceDemo(jobId) {
@@ -851,7 +908,10 @@
         if (index >= 0) state.jobs[index] = job;
       }
       state.activeJob = job;
+      state.taskView = "chat";
       renderJobDetail(job);
+      setTaskView("chat");
+      els.taskActions.hidden = true;
       if (!els.taskDialog.open) els.taskDialog.showModal();
       if (!options?.preserveHash) history.replaceState(null, "", window.location.pathname + window.location.search + "#job=" + encodeURIComponent(jobId));
     } catch (error) {
@@ -868,6 +928,11 @@
       : statusLabel(job.status) + (Number(job.actualUsd) ? " · " + money(job.actualUsd) : "");
     els.taskDetailTitle.textContent = job.title;
     els.taskDetailGoal.textContent = job.goal;
+    const activeModel = findModel(job.modelId) || { short: job.modelId?.split("/").pop() || "Model" };
+    els.taskModelButton.textContent = activeModel.short;
+    els.followupComposer.hidden = job.kind === "media";
+    destroyMediaPlayers();
+    renderConversation(job);
 
     const pending = (job.approvals || []).find((approval) => approval.status === "pending");
     els.approvalCard.hidden = !pending;
@@ -883,7 +948,6 @@
     const receiptSummary = job.receiptSummary || job.receipt?.summary || "";
     const hasReceipt = Boolean(job.resultSummary || receiptSummary || receiptEvidence.length);
     els.receiptCard.hidden = !hasReceipt;
-    destroyMediaPlayers();
     els.receiptEvidence.replaceChildren();
     if (hasReceipt) {
       els.receiptTitle.textContent = job.kind === "media" ? "Now playing" : job.kind === "phone" ? "Choose where to play it" : job.status === "completed" ? "Done" : "Result";
@@ -896,7 +960,11 @@
       receiptEvidence.forEach((evidence) => {
         const item = document.createElement("li");
         if (isYouTubeMedia(evidence)) {
-          renderYouTubePlayer(item, evidence);
+          if (job.kind === "media") {
+            item.textContent = evidence.title || "Playable media resolved";
+          } else {
+            renderYouTubePlayer(item, evidence);
+          }
         } else if (typeof evidence === "object" && evidence.url && evidence.url !== "#") {
           const link = document.createElement("a");
           link.href = evidence.url;
@@ -918,7 +986,8 @@
     renderTimeline(job);
     renderPlaybackControls(job);
     const terminal = TERMINAL.has(job.status);
-    els.taskActions.hidden = job.kind === "phone" || job.kind === "media";
+    els.taskMenu.hidden = job.kind === "phone" || job.kind === "media";
+    els.taskActions.hidden = true;
     els.swapButton.textContent = terminal ? "Run again" : "Change model";
     els.swapButton.onclick = terminal ? () => duplicateJob(job) : () => {
       state.swapJobId = job.id;
@@ -930,6 +999,70 @@
     els.pauseButton.onclick = () => actOnJob(job, job.status === "paused" ? "resume" : "pause");
     els.cancelButton.disabled = terminal;
     els.cancelButton.onclick = () => actOnJob(job, "cancel");
+  }
+
+  function setTaskView(view) {
+    state.taskView = view === "work" ? "work" : "chat";
+    els.taskChatTab.classList.toggle("active", state.taskView === "chat");
+    els.taskWorkTab.classList.toggle("active", state.taskView === "work");
+    els.taskChatPane.hidden = state.taskView !== "chat";
+    els.taskWorkPane.hidden = state.taskView !== "work";
+  }
+
+  function renderConversation(job) {
+    els.jobConversation.replaceChildren();
+    const addTurn = (role, content, label, createdAt) => {
+      if (!String(content || "").trim()) return;
+      const turn = document.createElement("article");
+      turn.className = "chat-turn " + role;
+      const bubble = document.createElement("div");
+      bubble.className = "turn-bubble";
+      bubble.textContent = content;
+      const meta = document.createElement("small");
+      meta.textContent = label || (role === "user" ? "You" : "PolySwap") + (createdAt ? " · " + timeLabel(createdAt) : "");
+      turn.append(bubble, meta);
+      els.jobConversation.appendChild(turn);
+    };
+
+    addTurn("user", job.goal, "You", job.createdAt);
+    const events = Array.isArray(job.events) ? job.events : [];
+    let hasAssistantResult = false;
+    events.forEach((event) => {
+      const kind = event.kind || event.type || "";
+      const detail = event.detail || event.message || "";
+      if (kind === "attachment_context") {
+        const turn = document.createElement("div");
+        turn.className = "chat-progress";
+        turn.innerHTML = "<i></i><span></span>";
+        turn.querySelector("span").textContent = "Attached · " + (event.label || "file");
+        els.jobConversation.appendChild(turn);
+      } else if (kind === "user_message" && detail !== job.goal) {
+        addTurn("user", detail, "You", event.createdAt);
+      } else if (kind === "assistant_message") {
+        hasAssistantResult = true;
+        addTurn("assistant", detail, event.label || "PolySwap", event.createdAt);
+      }
+    });
+
+    if (!hasAssistantResult && job.resultSummary && job.kind !== "media") {
+      addTurn("assistant", job.resultSummary, "PolySwap", job.completedAt || job.updatedAt);
+    }
+
+    const media = (job.evidence || job.receipt?.evidence || []).find(isYouTubeMedia);
+    if (job.kind === "media" && media) {
+      const mediaTurn = document.createElement("div");
+      mediaTurn.className = "chat-media";
+      renderYouTubePlayer(mediaTurn, media);
+      els.jobConversation.appendChild(mediaTurn);
+    }
+
+    if (!TERMINAL.has(job.status) && job.status !== "ready") {
+      const progress = document.createElement("div");
+      progress.className = "chat-progress working";
+      progress.innerHTML = "<i></i><span></span>";
+      progress.querySelector("span").textContent = job.currentInstruction || plainJobUpdate(job) + "…";
+      els.jobConversation.appendChild(progress);
+    }
   }
 
   function renderPlaybackControls(job) {
@@ -1006,6 +1139,58 @@
     if (!prompt) return;
     els.playbackPrompt.value = "";
     await sendPlaybackCommand(prompt);
+  }
+
+  async function submitFollowup(event) {
+    event.preventDefault();
+    const job = state.activeJob;
+    const prompt = els.followupPrompt.value.trim();
+    if (!job || !prompt || job.kind === "media") return;
+    els.followupSend.disabled = true;
+    try {
+      if (state.demo) {
+        const now = new Date().toISOString();
+        job.events = job.events || [];
+        job.events.push({ kind: "user_message", label: "You", detail: prompt, createdAt: now });
+        job.status = "running";
+        job.currentInstruction = "Previewing the continued job with the same context.";
+        job.updatedAt = now;
+        replaceJob(job);
+        persistDemo();
+        renderJobDetail(job);
+        window.setTimeout(() => {
+          const current = state.jobs.find((item) => item.id === job.id);
+          if (!current) return;
+          const completedAt = new Date().toISOString();
+          current.events.push({ kind: "assistant_message", label: "PolySwap preview", detail: "This follow-up stayed inside the same durable job and kept its model, history, permissions, and work record.", createdAt: completedAt });
+          current.status = "completed";
+          current.resultSummary = "This follow-up stayed inside the same durable job and kept its model, history, permissions, and work record.";
+          current.updatedAt = completedAt;
+          current.completedAt = completedAt;
+          persistDemo();
+          if (state.activeJob?.id === current.id) {
+            state.activeJob = current;
+            renderJobDetail(current);
+          }
+          renderJobs();
+        }, 900);
+      } else {
+        const payload = await api("/v1/jobs/" + encodeURIComponent(job.id) + "/actions", {
+          method: "POST",
+          body: JSON.stringify({ sessionId: state.sessionId, action: "followup", prompt })
+        });
+        replaceJob(payload.job);
+        state.jobDetails.set(job.id, payload.job);
+        state.activeJob = payload.job;
+        renderJobDetail(payload.job);
+      }
+      els.followupPrompt.value = "";
+      renderJobs();
+    } catch (error) {
+      setRuntimeNote("Could not continue the job · " + error.message, "error");
+    } finally {
+      els.followupSend.disabled = !els.followupPrompt.value.trim();
+    }
   }
 
   async function createPlayerPairing() {
@@ -1178,6 +1363,10 @@
       running: "Started",
       ready: "Ready",
       checkpoint: "Update",
+      user_message: "You",
+      assistant_message: "PolySwap",
+      attachment_context: "Attached",
+      followup: "Continued",
       approval_requested: "Approval requested",
       approved: "Approved",
       denied: "Denied",
@@ -1202,6 +1391,10 @@
     try {
       if (state.demo) {
         applyDemoAction(job, action, extra);
+        if (state.activeJob?.id === job.id) {
+          state.activeJob = job;
+          renderJobDetail(job);
+        }
       } else {
         const payload = await api("/v1/jobs/" + encodeURIComponent(job.id) + "/actions", {
           method: "POST",
@@ -1209,6 +1402,10 @@
         });
         replaceJob(payload.job);
         state.jobDetails.set(job.id, payload.job);
+        if (state.activeJob?.id === job.id) {
+          state.activeJob = payload.job;
+          renderJobDetail(payload.job);
+        }
       }
       renderJobs();
     } catch (error) {
@@ -1240,7 +1437,7 @@
         job.modelId = model.id;
         job.modelRoute = model.route;
         job.privacyMode = model.privacy;
-        job.status = "queued";
+        if (!TERMINAL.has(job.status)) job.status = "queued";
         job.updatedAt = new Date().toISOString();
         job.events = job.events || [];
         job.events.push({ type: "model_swapped", message: "Preview route changed to " + model.name + ".", createdAt: job.updatedAt });
@@ -1260,6 +1457,11 @@
         state.jobDetails.set(jobId, payload.job);
       }
       renderJobs();
+      const updated = state.jobs.find((item) => item.id === jobId);
+      if (state.activeJob?.id === jobId && updated) {
+        state.activeJob = updated;
+        renderJobDetail(updated);
+      }
       setRuntimeNote("Intelligence swapped to " + model.name + " · work context preserved", state.demo ? "preview" : "success");
     } catch (error) {
       setRuntimeNote("Could not swap intelligence · " + error.message, "error");
@@ -1324,7 +1526,7 @@
     const id = decodeURIComponent(match[1]);
     if (!state.jobs.some((job) => job.id === id)) return;
     history.replaceState(null, "", window.location.pathname + window.location.search);
-    toggleInlineJob(id, { forceOpen: true });
+    openJob(id);
   }
 
   function base64UrlBytes(value) {
@@ -1399,6 +1601,9 @@
   function bindEvents() {
     els.form.addEventListener("submit", createJob);
     els.prompt.addEventListener("input", updateComposer);
+    els.attachmentButton.addEventListener("click", () => els.attachmentInput.click());
+    els.attachmentInput.addEventListener("change", chooseAttachment);
+    els.attachmentChip.querySelector("button").addEventListener("click", clearAttachment);
     els.modelButton.addEventListener("click", () => {
       state.swapJobId = null;
       renderModels();
@@ -1419,9 +1624,27 @@
     els.pairPlayer.addEventListener("click", createPlayerPairing);
     els.modelClose.addEventListener("click", () => els.modelDialog.close());
     els.taskClose.addEventListener("click", () => els.taskDialog.close());
+    els.taskChatTab.addEventListener("click", () => setTaskView("chat"));
+    els.taskWorkTab.addEventListener("click", () => setTaskView("work"));
+    els.taskMenu.addEventListener("click", () => {
+      els.taskActions.hidden = !els.taskActions.hidden;
+    });
+    els.taskModelButton.addEventListener("click", () => {
+      if (!state.activeJob) return;
+      state.swapJobId = state.activeJob.id;
+      renderModels();
+      els.modelDialog.showModal();
+    });
+    els.followupComposer.addEventListener("submit", submitFollowup);
+    els.followupPrompt.addEventListener("input", () => {
+      els.followupPrompt.style.height = "auto";
+      els.followupPrompt.style.height = Math.min(els.followupPrompt.scrollHeight, 112) + "px";
+      els.followupSend.disabled = !els.followupPrompt.value.trim();
+    });
     els.taskDialog.addEventListener("close", () => {
       destroyMediaPlayers();
       state.activeJob = null;
+      els.taskActions.hidden = true;
       if (window.location.hash.startsWith("#job=")) history.replaceState(null, "", window.location.pathname + window.location.search);
     });
     window.addEventListener("hashchange", focusJobFromHash);
@@ -1439,6 +1662,8 @@
   async function init() {
     bindEvents();
     renderModels();
+    renderAttachment();
+    els.followupSend.disabled = true;
     updateComposer();
     if (state.demo) {
       setRuntimeNote("Preview mode · no work is sent", "preview");
