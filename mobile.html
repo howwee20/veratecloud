@@ -13,8 +13,8 @@
   <link rel="icon" type="image/png" href="assets/polyswap-mark.png?v=2">
   <link rel="apple-touch-icon" href="assets/polyswap-mark.png?v=2">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="mobile.css?v=mobile-agent-room-1">
-  <script src="mobile.js?v=mobile-agent-room-1" defer></script>
+  <link rel="stylesheet" href="mobile.css?v=mobile-agent-room-2">
+  <script src="mobile.js?v=mobile-agent-room-2" defer></script>
 </head>
 <body>
   <header class="mobile-header">
@@ -78,21 +78,6 @@
       </div>
     </section>
   </main>
-
-  <dialog class="sheet-dialog access-dialog" id="accessDialog">
-    <form method="dialog" class="sheet-card" id="accessForm">
-      <button class="sheet-close" value="cancel" aria-label="Close">×</button>
-      <img class="sheet-mark" src="assets/polyswap-mark.png?v=2" alt="">
-      <p class="sheet-kicker">Private alpha</p>
-      <h2>Open your PolySwap</h2>
-      <p>Enter your access code.</p>
-      <label for="accessCode">Access code</label>
-      <input id="accessCode" type="password" autocomplete="one-time-code" placeholder="Enter code">
-      <p class="form-error" id="accessError" hidden></p>
-      <button class="primary-action" id="accessSubmit" value="default">Continue</button>
-      <button class="quiet-action" id="demoButton" type="button">Preview the phone experience</button>
-    </form>
-  </dialog>
 
   <dialog class="sheet-dialog model-dialog" id="modelDialog">
     <div class="sheet-card">

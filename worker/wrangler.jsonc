@@ -43,6 +43,9 @@
     "SHARED_BUDGET_USD": "10",
     "MAX_REQUEST_BUDGET_USD": "1",
     "REQUESTS_PER_MINUTE": "20",
+    "PUBLIC_ACCESS_PER_MINUTE": "12",
+    "PUBLIC_AGENT_TURNS_PER_HOUR": "8",
+    "PUBLIC_AGENT_TURNS_PER_DAY": "30",
     "VAPID_SUBJECT": "mailto:hello@polyswap.ai"
   }
 }

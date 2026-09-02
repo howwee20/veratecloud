@@ -69,6 +69,7 @@
     jobDetails: new Map(),
     swapJobId: null,
     pollTimer: null,
+    accessPromise: null,
     previousStatuses: new Map(),
     serviceWorker: null,
     mediaPlayers: [],
@@ -99,11 +100,6 @@
     activityToggle: document.getElementById("activityToggle"),
     activityDrawer: document.getElementById("activityDrawer"),
     activityTotal: document.getElementById("activityTotal"),
-    accessDialog: document.getElementById("accessDialog"),
-    accessForm: document.getElementById("accessForm"),
-    accessCode: document.getElementById("accessCode"),
-    accessError: document.getElementById("accessError"),
-    previewButton: document.getElementById("demoButton"),
     modelDialog: document.getElementById("modelDialog"),
     taskDialog: document.getElementById("taskDialog"),
     taskTemplate: document.getElementById("taskTemplate"),
@@ -354,6 +350,23 @@
     return payload;
   }
 
+  async function ensureOpenAccess() {
+    if (state.demo || state.accessToken) return true;
+    if (state.accessPromise) return state.accessPromise;
+    state.accessPromise = api("/v1/access/anonymous", {
+      method: "POST",
+      body: JSON.stringify({ sessionId: state.sessionId })
+    }).then((payload) => {
+      state.accessToken = payload.accessToken;
+      localStorage.setItem(STORAGE.token, payload.accessToken);
+      connectNativeRuntime();
+      return true;
+    }).finally(() => {
+      state.accessPromise = null;
+    });
+    return state.accessPromise;
+  }
+
   function modelFromApi(profile) {
     const label = profile.label || profile.id?.split("/").pop() || "Model";
     return {
@@ -527,7 +540,15 @@
       if (error.status === 401 || error.status === 403) {
         state.accessToken = "";
         localStorage.removeItem(STORAGE.token);
-        showAccess();
+        if (!state.demo && !options?.retried) {
+          try {
+            await ensureOpenAccess();
+            return loadJobs({ ...(options || {}), retried: true });
+          } catch (accessError) {
+            setRuntimeNote("PolySwap could not connect · " + accessError.message, "error");
+            return;
+          }
+        }
       }
       setRuntimeNote("PolySwap could not connect · " + error.message, "error");
     }
@@ -1338,7 +1359,7 @@
 
   async function createPlayerPairing() {
     if (state.demo) {
-      setRuntimeNote("Pairing is available in the live private alpha.", "neutral");
+      setRuntimeNote("Pairing is available in the installed PolySwap phone app.", "neutral");
       return;
     }
     try {
@@ -1626,43 +1647,6 @@
     els.prompt.focus();
   }
 
-  async function submitAccess(event) {
-    event.preventDefault();
-    const code = els.accessCode.value.trim();
-    if (!code) return;
-    els.accessError.hidden = false;
-    els.accessError.textContent = "Checking access…";
-    try {
-      const payload = await api("/v1/access", {
-        method: "POST",
-        body: JSON.stringify({ code, sessionId: state.sessionId })
-      });
-      state.accessToken = payload.accessToken;
-      localStorage.setItem(STORAGE.token, payload.accessToken);
-      connectNativeRuntime();
-      els.accessError.textContent = "";
-      els.accessError.hidden = true;
-      els.accessDialog.close();
-      await loadJobs();
-    } catch (error) {
-      els.accessError.textContent = error.message;
-    }
-  }
-
-  function showAccess() {
-    if (!els.accessDialog.open) els.accessDialog.showModal();
-  }
-
-  function enterPreview() {
-    state.demo = true;
-    const next = new URL(window.location.href);
-    next.searchParams.set("demo", "1");
-    history.replaceState(null, "", next.pathname + next.search + next.hash);
-    setRuntimeNote("Preview mode · no cloud work is executed", "preview");
-    els.accessDialog.close();
-    loadJobs();
-  }
-
   function focusJobFromHash() {
     const match = window.location.hash.match(/^#job=(.+)$/);
     if (!match) return;
@@ -1753,8 +1737,6 @@
       renderModels();
       els.modelDialog.showModal();
     });
-    els.accessForm.addEventListener("submit", submitAccess);
-    els.previewButton.addEventListener("click", enterPreview);
     els.notifyButton.addEventListener("click", requestNotifications);
     els.micButton.addEventListener("click", startDictation);
     els.playbackComposer.addEventListener("submit", submitPlaybackCommand);
@@ -1817,11 +1799,15 @@
     }
     await registerServiceWorker();
     await loadModels();
-    connectNativeRuntime();
-    if (!state.demo && !state.accessToken) {
-      showAccess();
-      return;
+    if (!state.demo) {
+      try {
+        await ensureOpenAccess();
+      } catch (error) {
+        setRuntimeNote("PolySwap could not connect · " + error.message, "error");
+        return;
+      }
     }
+    connectNativeRuntime();
     await loadJobs();
     state.pollTimer = window.setInterval(() => loadJobs({ quiet: true }), 5000);
   }
