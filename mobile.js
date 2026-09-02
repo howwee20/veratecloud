@@ -115,9 +115,13 @@
     taskClose: document.getElementById("taskClose"),
     taskMenu: document.getElementById("taskMenu"),
     taskChatTab: document.getElementById("taskChatTab"),
-    taskWorkTab: document.getElementById("taskWorkTab"),
+    taskLiveTab: document.getElementById("taskLiveTab"),
+    taskFilesTab: document.getElementById("taskFilesTab"),
+    taskProofTab: document.getElementById("taskProofTab"),
     taskChatPane: document.getElementById("taskChatPane"),
-    taskWorkPane: document.getElementById("taskWorkPane"),
+    taskLivePane: document.getElementById("taskLivePane"),
+    taskFilesPane: document.getElementById("taskFilesPane"),
+    taskProofPane: document.getElementById("taskProofPane"),
     jobConversation: document.getElementById("jobConversation"),
     taskDetailId: document.getElementById("taskDetailId"),
     taskDetailStatus: document.getElementById("taskDetailStatus"),
@@ -134,6 +138,19 @@
     receiptSummary: document.getElementById("receiptSummary"),
     receiptEvidence: document.getElementById("receiptEvidence"),
     taskTimeline: document.getElementById("taskTimeline"),
+    agentLiveCard: document.getElementById("agentLiveCard"),
+    agentStatusLabel: document.getElementById("agentStatusLabel"),
+    agentStatusText: document.getElementById("agentStatusText"),
+    agentStatusMeta: document.getElementById("agentStatusMeta"),
+    taskWorkspace: document.getElementById("taskWorkspace"),
+    taskRuntimeModel: document.getElementById("taskRuntimeModel"),
+    taskArtifactList: document.getElementById("taskArtifactList"),
+    taskAcceptanceList: document.getElementById("taskAcceptanceList"),
+    proofState: document.getElementById("proofState"),
+    proofEstimate: document.getElementById("proofEstimate"),
+    proofMaximum: document.getElementById("proofMaximum"),
+    proofActual: document.getElementById("proofActual"),
+    proofCheckpoint: document.getElementById("proofCheckpoint"),
     swapButton: document.getElementById("swapButton"),
     pauseButton: document.getElementById("pauseButton"),
     cancelButton: document.getElementById("cancelButton"),
@@ -932,7 +949,7 @@
   }
 
   function renderJobDetail(job) {
-    els.taskDetailId.textContent = "Job";
+    els.taskDetailId.textContent = job.title || "PolySwap job";
     els.taskDetailStatus.textContent = job.kind === "media" && job.status === "ready"
       ? "Ready in PolySwap"
       : job.kind === "phone" && job.status === "waiting_for_human"
@@ -942,6 +959,9 @@
     els.taskDetailGoal.textContent = job.goal;
     const activeModel = findModel(job.modelId) || { short: job.modelId?.split("/").pop() || "Model" };
     els.taskModelButton.textContent = activeModel.short;
+    renderLiveState(job, activeModel);
+    renderArtifacts(job, activeModel);
+    renderProof(job);
     els.followupComposer.hidden = job.kind === "media";
     destroyMediaPlayers();
     renderConversation(job);
@@ -977,9 +997,9 @@
           } else {
             renderYouTubePlayer(item, evidence);
           }
-        } else if (typeof evidence === "object" && evidence.url && evidence.url !== "#") {
+        } else if (typeof evidence === "object" && safeExternalUrl(evidence.url)) {
           const link = document.createElement("a");
-          link.href = evidence.url;
+          link.href = safeExternalUrl(evidence.url);
           link.target = "_blank";
           link.rel = "noopener";
           link.textContent = evidence.label || "Open evidence";
@@ -1014,11 +1034,122 @@
   }
 
   function setTaskView(view) {
-    state.taskView = view === "work" ? "work" : "chat";
-    els.taskChatTab.classList.toggle("active", state.taskView === "chat");
-    els.taskWorkTab.classList.toggle("active", state.taskView === "work");
-    els.taskChatPane.hidden = state.taskView !== "chat";
-    els.taskWorkPane.hidden = state.taskView !== "work";
+    const allowed = new Set(["chat", "live", "files", "proof"]);
+    state.taskView = allowed.has(view) ? view : "chat";
+    const views = [
+      ["chat", els.taskChatTab, els.taskChatPane],
+      ["live", els.taskLiveTab, els.taskLivePane],
+      ["files", els.taskFilesTab, els.taskFilesPane],
+      ["proof", els.taskProofTab, els.taskProofPane]
+    ];
+    views.forEach(([name, tab, pane]) => {
+      tab.classList.toggle("active", state.taskView === name);
+      tab.setAttribute("aria-selected", String(state.taskView === name));
+      pane.hidden = state.taskView !== name;
+    });
+  }
+
+  function renderLiveState(job, activeModel) {
+    const status = String(job.status || "queued");
+    const isTerminal = TERMINAL.has(status);
+    const needsAttention = ATTENTION.has(status);
+    els.agentLiveCard.dataset.status = status;
+    els.agentStatusLabel.textContent = needsAttention
+      ? "PolySwap needs you"
+      : isTerminal
+      ? status === "completed" ? "PolySwap finished" : "PolySwap stopped"
+      : "PolySwap is working";
+    els.agentStatusText.textContent = job.currentInstruction || plainJobUpdate(job);
+    els.agentStatusMeta.textContent = [
+      job.workspace || "Cloud workspace",
+      activeModel.name || activeModel.short,
+      statusLabel(status)
+    ].filter(Boolean).join(" · ");
+  }
+
+  function renderArtifacts(job, activeModel) {
+    els.taskWorkspace.textContent = job.workspace || "Cloud workspace";
+    els.taskRuntimeModel.textContent = activeModel.name || activeModel.short;
+    els.taskArtifactList.replaceChildren();
+
+    const artifacts = [];
+    (job.evidence || job.receipt?.evidence || []).forEach((evidence) => {
+      if (typeof evidence === "string") artifacts.push({ label: evidence, kind: "Evidence" });
+      else if (evidence) artifacts.push({
+        label: evidence.label || evidence.title || "Evidence recorded",
+        detail: evidence.detail || evidence.summary || evidence.type || "",
+        url: safeExternalUrl(evidence.url),
+        kind: isYouTubeMedia(evidence) ? "Media" : evidence.kind || "Evidence"
+      });
+    });
+    (job.events || []).filter((event) => event.kind === "attachment_context" || event.type === "attachment_context").forEach((event) => {
+      artifacts.push({ label: event.label || "Attached file", detail: event.message || event.detail || "Input context", kind: "Input" });
+    });
+
+    if (!artifacts.length) {
+      const empty = document.createElement("div");
+      empty.className = "artifact-empty";
+      empty.innerHTML = "<strong>No artifacts yet</strong><span>Files, links, and evidence will appear here as the agent returns them.</span>";
+      els.taskArtifactList.appendChild(empty);
+      return;
+    }
+
+    artifacts.forEach((artifact, index) => {
+      const row = document.createElement(artifact.url && artifact.url !== "#" ? "a" : "div");
+      row.className = "artifact-row";
+      if (row.tagName === "A") {
+        row.href = artifact.url;
+        row.target = "_blank";
+        row.rel = "noopener";
+      }
+      const indexLabel = String(index + 1).padStart(2, "0");
+      row.innerHTML = "<i></i><span><strong></strong><small></small></span><em></em>";
+      row.querySelector("i").textContent = indexLabel;
+      row.querySelector("strong").textContent = artifact.label;
+      row.querySelector("small").textContent = artifact.detail || artifact.kind;
+      row.querySelector("em").textContent = row.tagName === "A" ? "↗" : artifact.kind;
+      els.taskArtifactList.appendChild(row);
+    });
+  }
+
+  function renderProof(job) {
+    const status = String(job.status || "queued");
+    els.proofState.textContent = status === "completed"
+      ? "Completed with a receipt"
+      : status === "completed_unverified"
+      ? "Review required"
+      : status === "failed" || status === "cancelled"
+      ? "Work stopped"
+      : ATTENTION.has(status)
+      ? "Waiting for you"
+      : "Work in progress";
+    els.proofEstimate.textContent = Number.isFinite(Number(job.estimatedUsd)) ? money(Number(job.estimatedUsd)) : "—";
+    els.proofMaximum.textContent = Number.isFinite(Number(job.budgetUsd)) ? money(Number(job.budgetUsd)) : "—";
+    els.proofActual.textContent = Number.isFinite(Number(job.actualUsd)) && Number(job.actualUsd) > 0 ? money(Number(job.actualUsd)) : "Not final";
+    els.proofCheckpoint.textContent = job.checkpointId || job.receipt?.checkpointId || (TERMINAL.has(status) ? "Recorded" : "Pending");
+
+    const criteria = Array.isArray(job.acceptanceCriteria) ? job.acceptanceCriteria.filter(Boolean) : [];
+    els.taskAcceptanceList.replaceChildren();
+    const items = criteria.length ? criteria : ["Return a result that directly addresses the job."];
+    items.forEach((criterion) => {
+      const item = document.createElement("li");
+      const mark = document.createElement("i");
+      mark.textContent = status === "completed" ? "✓" : status === "completed_unverified" ? "!" : "·";
+      const copy = document.createElement("span");
+      copy.textContent = criterion;
+      item.append(mark, copy);
+      els.taskAcceptanceList.appendChild(item);
+    });
+  }
+
+  function safeExternalUrl(value) {
+    if (!value || value === "#") return "";
+    try {
+      const url = new URL(String(value), window.location.href);
+      return url.protocol === "https:" || url.protocol === "http:" ? url.href : "";
+    } catch (_) {
+      return "";
+    }
   }
 
   function renderConversation(job) {
@@ -1638,7 +1769,9 @@
     els.modelClose.addEventListener("click", () => els.modelDialog.close());
     els.taskClose.addEventListener("click", () => els.taskDialog.close());
     els.taskChatTab.addEventListener("click", () => setTaskView("chat"));
-    els.taskWorkTab.addEventListener("click", () => setTaskView("work"));
+    els.taskLiveTab.addEventListener("click", () => setTaskView("live"));
+    els.taskFilesTab.addEventListener("click", () => setTaskView("files"));
+    els.taskProofTab.addEventListener("click", () => setTaskView("proof"));
     els.taskMenu.addEventListener("click", () => {
       els.taskActions.hidden = !els.taskActions.hidden;
     });

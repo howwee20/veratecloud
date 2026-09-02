@@ -13,8 +13,8 @@
   <link rel="icon" type="image/png" href="assets/polyswap-mark.png?v=2">
   <link rel="apple-touch-icon" href="assets/polyswap-mark.png?v=2">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="mobile.css?v=mobile-simple-2">
-  <script src="mobile.js?v=mobile-simple-2" defer></script>
+  <link rel="stylesheet" href="mobile.css?v=mobile-agent-room-1">
+  <script src="mobile.js?v=mobile-agent-room-1" defer></script>
 </head>
 <body>
   <header class="mobile-header">
@@ -113,7 +113,9 @@
       </header>
       <nav class="task-view-tabs" aria-label="Job view">
         <button class="active" id="taskChatTab" type="button">Chat</button>
-        <button id="taskWorkTab" type="button">Work</button>
+        <button id="taskLiveTab" type="button">Live</button>
+        <button id="taskFilesTab" type="button">Files</button>
+        <button id="taskProofTab" type="button">Proof</button>
       </nav>
       <section class="task-detail-main">
         <section class="task-chat-pane" id="taskChatPane">
@@ -140,21 +142,60 @@
             <p class="playback-status" id="playbackStatus"></p>
           </section>
         </section>
-        <section class="task-work-pane" id="taskWorkPane" hidden>
+        <section class="task-live-pane" id="taskLivePane" hidden>
+          <section class="agent-live-card" id="agentLiveCard" data-status="queued">
+            <div class="live-orbs" aria-hidden="true">
+              <i></i><i></i><i></i><i></i><i></i><i></i>
+            </div>
+            <div>
+              <small id="agentStatusLabel">PolySwap agent</small>
+              <strong id="agentStatusText">Waiting to start</strong>
+              <span id="agentStatusMeta">Cloud workspace</span>
+            </div>
+          </section>
           <div class="work-summary">
             <small>Objective</small>
             <h2 id="taskDetailTitle">PolySwap job</h2>
             <p id="taskDetailGoal"></p>
           </div>
+          <section class="timeline-section">
+            <h3>Live activity</h3>
+            <div class="timeline" id="taskTimeline"></div>
+          </section>
+        </section>
+        <section class="task-files-pane" id="taskFilesPane" hidden>
+          <header class="pane-heading">
+            <small>Artifacts</small>
+            <h2>Files and evidence</h2>
+            <p>Everything the agent returned or used to support this job.</p>
+          </header>
+          <dl class="workspace-facts">
+            <div><dt>Workspace</dt><dd id="taskWorkspace">Cloud workspace</dd></div>
+            <div><dt>Intelligence</dt><dd id="taskRuntimeModel">Auto</dd></div>
+          </dl>
+          <div class="artifact-list" id="taskArtifactList"></div>
+        </section>
+        <section class="task-proof-pane" id="taskProofPane" hidden>
+          <header class="pane-heading">
+            <small>Proof</small>
+            <h2 id="proofState">In progress</h2>
+            <p>The requested outcome, execution boundary, cost, and returned evidence stay attached to the job.</p>
+          </header>
+          <dl class="proof-facts">
+            <div><dt>Estimate</dt><dd id="proofEstimate">—</dd></div>
+            <div><dt>Maximum</dt><dd id="proofMaximum">—</dd></div>
+            <div><dt>Actual</dt><dd id="proofActual">—</dd></div>
+            <div><dt>Checkpoint</dt><dd id="proofCheckpoint">Pending</dd></div>
+          </dl>
+          <section class="criteria-card">
+            <small>Acceptance criteria</small>
+            <ul id="taskAcceptanceList"></ul>
+          </section>
           <section class="receipt-card" id="receiptCard" hidden>
             <small>Result</small>
             <h3 id="receiptTitle">Completed</h3>
             <p id="receiptSummary"></p>
             <ul id="receiptEvidence"></ul>
-          </section>
-          <section class="timeline-section">
-            <h3>Activity</h3>
-            <div class="timeline" id="taskTimeline"></div>
           </section>
         </section>
       </section>
